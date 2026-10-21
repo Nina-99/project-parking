@@ -235,6 +235,20 @@ uv run python tools/report_metrics.py \
   0.8707.
 - **The only other gain that materialised** came from excluding livery-dominant
   minibuses: +2 to +3 points.
-- Reference numbers, evaluated classes only, dataset frozen at `pool_20261021`:
-  type **0.8801** (weighted 0.8503, five classes), colour **0.7897–0.8232**
-  depending on the run (weighted 0.8064–0.8318).
+- Reference numbers, evaluated classes only, dataset frozen at `pool_20261021`,
+  two runs per configuration:
+
+  | model | runs (macro-F1 evaluadas) | range |
+  |---|---|---|
+  | type | 0.8801 · 0.8893 | **0.88–0.89** |
+  | colour | 0.8232 (v3 data) · 0.7897 · 0.7781 (v4 data) | **0.78–0.82** |
+
+- **Model selection uses a different metric than the report.** The training loop
+  picks the best epoch by macro-F1 over *every* class present in validation, while
+  the reported number uses only the classes that clear the support gate. A
+  checkpoint can therefore be selected for doing well on classes that will not be
+  reported. Fixing it means changing `evaluate()` and re-running every experiment,
+  so it is recorded as a known limitation rather than changed at the close. Watch
+  the tell-tale: the two type runs rank *opposite* on validation (0.8720 vs
+  0.8584) and on test (0.8801 vs 0.8893), which also means selection by
+  validation did not order them the way the test set does.
