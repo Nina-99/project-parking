@@ -1,49 +1,29 @@
-# Multi-stage Dockerfile for ProjectParking
-# Uses uv for dependency management
-
 # ============================================================
-# Stage 1: Build dependencies
+# Stage 1: Builder — install Python deps via uv
 # ============================================================
 FROM python:3.12-slim AS builder
 
-# Install uv
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+ENV UV_SYSTEM_PYTHON=1 \
+    UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy
+
+RUN pip install uv --quiet
 
 WORKDIR /app
-
-# Install system dependencies required by psycopg2 and OpenCV
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    libpq-dev \
-    gcc \
-    && rm -rf /var/lib/apt/lists/*
-
-# Copy dependency files
-COPY pyproject.toml ./
-
-# Install main dependencies only (no dev/lint/typecheck in production)
-RUN uv sync --group main --frozen
+COPY pyproject.toml uv.lock ./
+RUN uv sync --frozen --no-dev --no-editable
 
 # ============================================================
-# Stage 2: Production image
+# Stage 2: Runtime
 # ============================================================
 FROM python:3.12-slim
 
 WORKDIR /app
 
-# Install runtime system dependencies only
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    libpq5 \
-    && rm -rf /var/lib/apt/lists/*
+COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
+COPY --from=builder /usr/local/bin /usr/local/bin
 
-# Copy virtual environment from builder
-COPY --from=builder /app/.venv /app/.venv
-ENV PATH="/app/.venv/bin:$PATH"
+COPY backend/ ./backend/
+COPY rtsp-capture/ ./rtsp-capture/
 
-# Copy application code
-COPY . .
-
-# Expose Django port
-EXPOSE 8000
-
-# Run gunicorn
-CMD ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "4"]
+CMD ["uvicorn", "backend.app.main:app", "--host", "0.0.0.0", "--port", "8000"]

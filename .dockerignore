@@ -1,0 +1,30 @@
+.venv/
+venv/
+env/
+.git/
+.github/
+.gitignore
+.gitattributes
+__pycache__/
+*.pyc
+*.pyo
+.DS_Store
+.idea/
+.vscode/
+*.md
+README.md
+LICENSE
+.vite/
+node_modules/
+_legacy/
+
+# Keep .env.example but ignore .env
+.env
+
+# Coverage
+coverage/
+htmlcov/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.egg-info/

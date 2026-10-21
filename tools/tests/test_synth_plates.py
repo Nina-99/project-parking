@@ -1,0 +1,92 @@
+"""Unit tests for the synthetic plate generator.
+
+Fast and headless: small masters, few samples, fixed seeds. What matters here
+is the contract — layout identical to the extractor, manifest always traceable,
+sizes inside the real distribution — not the aesthetics of any single crop.
+"""
+
+from __future__ import annotations
+
+import json
+import random
+from pathlib import Path
+
+import cv2
+from plate_dataset.synth_plates.degrade import degrade
+from plate_dataset.synth_plates.pipeline import SynthConfig, SynthPipeline
+from plate_dataset.synth_plates.renderer import MASTER_H, MASTER_W, render_clean
+from plate_dataset.synth_plates.textgen import (
+    DEPT_LETTERS,
+    sample_dept,
+    sample_text,
+)
+
+
+class TestTextgen:
+    def test_four_digit_format_dominates(self) -> None:
+        rng = random.Random(0)
+        texts = [sample_text(rng) for _ in range(1000)]
+        four = sum(1 for t in texts if len(t) == 7)
+        assert 850 <= four <= 950
+
+    def test_three_digit_format_exists_but_rare(self) -> None:
+        rng = random.Random(1)
+        texts = [sample_text(rng) for _ in range(1000)]
+        three = sum(1 for t in texts if len(t) == 6)
+        assert 50 <= three <= 150
+
+    def test_no_ambiguous_glyphs(self) -> None:
+        rng = random.Random(2)
+        for _ in range(500):
+            text = sample_text(rng)
+            assert "I" not in text and "O" not in text
+
+    def test_dept_covers_all_nine_with_o_majority(self) -> None:
+        rng = random.Random(3)
+        depts = [sample_dept(rng) for _ in range(2000)]
+        assert set(depts) == set(DEPT_LETTERS)
+        o_share = sum(1 for d in depts if d == "O") / len(depts)
+        assert 0.35 <= o_share <= 0.55
+
+
+class TestRenderer:
+    def test_master_size_and_channels(self) -> None:
+        master = render_clean("4852PHD", "O")
+        assert master.shape == (MASTER_H, MASTER_W, 3)
+
+    def test_dept_changes_pixels(self) -> None:
+        a = render_clean("4852PHD", "O")
+        b = render_clean("4852PHD", "L")
+        assert (a != b).any()
+
+
+class TestDegrade:
+    def test_output_matches_target_size(self) -> None:
+        rng = random.Random(4)
+        crop, params = degrade(render_clean("4852PHD", "O"), rng, 96, 39)
+        assert crop.shape[1] == 96 and crop.shape[0] == 39
+        assert params["target_hw"] == [39, 96]
+
+    def test_deterministic_under_seed(self) -> None:
+        def run() -> bytes:
+            rng = random.Random(11)
+            crop, _ = degrade(render_clean("4852PHD", "O"), rng, 80, 30)
+            _, buf = cv2.imencode(".png", crop)
+            return buf.tobytes()
+
+        assert run() == run()
+
+
+class TestPipeline:
+    def test_writes_layout_and_manifest(self, tmp_path: Path) -> None:
+        written = SynthPipeline(
+            tmp_path, SynthConfig(count=5, seed=0)).run()
+        assert written == 5
+        assert len(list((tmp_path / "plates" / "images" / "synth").glob("*.jpg"))) == 5
+        labels = sorted((tmp_path / "plates" / "labels" / "synth").glob("*.txt"))
+        assert len(labels) == 5
+        rows = [json.loads(line)
+                for line in (tmp_path / "manifest.jsonl").read_text().splitlines()]
+        assert len(rows) == 5
+        assert all(row["synth"] is True and row["kind"] == "synth" for row in rows)
+        assert labels[0].read_text().strip() == rows[0]["label"]

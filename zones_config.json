@@ -1,0 +1,177 @@
+{
+    "cameras": {
+        "channel16": {
+            "name": "channel16",
+            "street_zone": [
+                [
+                    0.0656,
+                    0.0083
+                ],
+                [
+                    0.8766,
+                    0.0042
+                ],
+                [
+                    0.8727,
+                    0.3806
+                ],
+                [
+                    0.0953,
+                    0.4028
+                ]
+            ],
+            "inside_zone": [
+                [
+                    0.107,
+                    0.4375
+                ],
+                [
+                    0.2523,
+                    0.4028
+                ],
+                [
+                    0.7531,
+                    0.3889
+                ],
+                [
+                    0.8648,
+                    0.4181
+                ],
+                [
+                    1.0,
+                    1.0
+                ],
+                [
+                    0.0,
+                    1.0
+                ]
+            ],
+            "tripwire": [
+                [
+                    0.0984,
+                    0.4056
+                ],
+                [
+                    0.868,
+                    0.3792
+                ]
+            ],
+            "osd_zones": [
+                [
+                    0.0,
+                    0.88,
+                    0.24,
+                    1.0
+                ],
+                [
+                    0.68,
+                    0.0,
+                    1.0,
+                    0.07
+                ]
+            ],
+            "vehicle_conf": 0.35,
+            "min_area_pixels": 3000,
+            "vehicle_classes": [
+                2,
+                3,
+                5,
+                7
+            ]
+        },
+        "channel6": {
+            "name": "channel6",
+            "street_zone": [
+                [
+                    0.2656,
+                    0.0
+                ],
+                [
+                    0.8125,
+                    0.0097
+                ],
+                [
+                    0.8125,
+                    0.4778
+                ],
+                [
+                    0.2828,
+                    0.3333
+                ]
+            ],
+            "inside_zone": [
+                [
+                    0.3008,
+                    0.3444
+                ],
+                [
+                    0.8117,
+                    0.4944
+                ],
+                [
+                    0.92,
+                    1.0
+                ],
+                [
+                    0.0,
+                    0.9681
+                ]
+            ],
+            "tripwire": [
+                [
+                    0.2812,
+                    0.3347
+                ],
+                [
+                    0.8055,
+                    0.3847
+                ]
+            ],
+            "osd_zones": [
+                [
+                    0.0,
+                    0.88,
+                    0.24,
+                    1.0
+                ],
+                [
+                    0.68,
+                    0.0,
+                    1.0,
+                    0.07
+                ]
+            ],
+            "vehicle_conf": 0.35,
+            "min_area_pixels": 3000,
+            "vehicle_classes": [
+                2,
+                3,
+                5,
+                7
+            ]
+        }
+    },
+    "global": {
+        "scan_stride": 12,
+        "motion_downscale": 0.25,
+        "motion_pixel_threshold": 25,
+        "motion_threshold": 0.008,
+        "segment_pad_frames": 45,
+        "segment_merge_gap": 60,
+        "dense_stride": 1,
+        "grace_frames": 30,
+        "min_track_hits": 3,
+        "top_k_frames": 10,
+        "ocr_min_conf": 0.6,
+        "min_plate_px": 40,
+        "min_plate_sharpness": 15.0,
+        "plate_y_min": 0.55,
+        "plate_y_max": 1.0,
+        "save_negatives": true,
+        "model_name": "yolo26x.pt",
+        "device": 0,
+        "tracker": "bytetrack.yaml",
+        "input_dir": "/mnt/PARKING/ver/",
+        "output_dir": "/mnt/Smart_Parking/dataset/"
+    }
+}
