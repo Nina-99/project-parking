@@ -141,13 +141,19 @@ one summary row per run.
   achievable threshold: 69% accuracy.
 - **Run-to-run variance is about 1 point of macro-F1.** Same pipeline, same
   split, same seed, two runs: 0.7719 vs 0.7620.
-- **The colour-pipeline change did not pay off.** On the v2 split it was neutral
-  (0.7617 original vs 0.7620 new); on the reproducible v3 split it is 3 points
-  *worse* (0.8075 original vs 0.7778), which is outside the noise floor. Removing
-  saturation jitter was the point of the change and buys nothing: saturation says
-  *how much* colour, not *which* colour, and the classes are separated by hue.
-  The added rotation and motion blur are the likely cost.
-- **The gain that did materialise** came from excluding livery-dominant
-  minibuses: +2 to +3 points.
-- Reference numbers on v3, evaluated classes only: type macro-F1 pending, colour
-  0.8075 (weighted 0.8209) with the original pipeline.
+- **What the colour pipeline change was worth**, three arms on the v3 split
+  (same seed, 40 epochs, evaluated classes only):
+
+  | pipeline | macro-F1 |
+  |---|---|
+  | original: RRC 0.7-1.0, hflip, jitter b/c/s 0.3 | 0.8075 |
+  | **original minus saturation jitter** | **0.8232** |
+  | minus saturation + rotation ±8° + motion blur | 0.7778 |
+
+  Removing saturation jitter is worth about +1.6 points, at the edge of the noise
+  floor. Adding rotation and blur on top costs about 4.5. The split between the
+  two pipelines was right; the extra augmentation was not.
+- **The other gain** came from excluding livery-dominant minibuses: +2 to +3
+  points.
+- Reference numbers on v3, evaluated classes only: colour **0.8232**
+  (weighted 0.8318); type macro-F1 pending.
