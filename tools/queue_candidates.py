@@ -118,12 +118,20 @@ def main(argv: list[str] | None = None) -> None:
     representatives.sort(key=lambda row: str(row.get("stem")))
     chosen = representatives[: args.limit]
 
+    def resolved(row: dict) -> str:
+        """Crop path relative to the dataset root, so the labeller can open it."""
+        source = image_path(args.dataset, row)
+        try:
+            return str(source.relative_to(args.dataset))
+        except ValueError:
+            return str(source)
+
     args.output.parent.mkdir(parents=True, exist_ok=True)
     with args.output.open("w", encoding="utf-8") as fh:
         for row in chosen:
             fh.write(json.dumps({
                 "stem": row.get("stem"),
-                "image": row.get("image"),
+                "image": resolved(row),
                 "video": row.get("video"),
                 "track_id": row.get("track_id"),
                 "frame": row.get("frame"),
@@ -137,7 +145,7 @@ def main(argv: list[str] | None = None) -> None:
     if args.materialise:
         args.materialise.mkdir(parents=True, exist_ok=True)
         for row in chosen:
-            source = image_path(args.dataset, row)
+            source = args.dataset / resolved(row)
             if source.exists():
                 shutil.copy2(source, args.materialise / f"{row['stem']}.jpg")
 

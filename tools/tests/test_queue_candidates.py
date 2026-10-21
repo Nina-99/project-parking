@@ -80,3 +80,18 @@ def test_already_labelled_frames_are_skipped(tmp_path: Path) -> None:
 def test_an_unknown_target_is_rejected(tmp_path: Path) -> None:
     with pytest.raises(SystemExit):
         main(["--dataset", str(tmp_path), "--target", "camion", "--output", str(tmp_path / "q")])
+
+
+def test_the_labeller_can_resolve_the_queue(tmp_path: Path) -> None:
+    from label_type_gui import queue_images
+
+    queue = tmp_path / "q.jsonl"
+    queue.write_text(
+        json.dumps({"stem": "a", "image": "attributes/images/vid/a.jpg"}) + "\n"
+        + "\n"
+        + json.dumps({"stem": "b", "image": None}) + "\n",
+        encoding="utf-8")
+
+    images = queue_images(queue, tmp_path)
+
+    assert images == [tmp_path / "attributes/images/vid/a.jpg"]

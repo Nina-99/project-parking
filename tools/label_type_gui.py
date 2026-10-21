@@ -112,8 +112,10 @@ class TypeLabeller:
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.review = bool(getattr(args, "review", False))
-        if not self.review and not args.images:
-            raise SystemExit("[ERROR] --images is required unless --review is used")
+        self.crop_mode = bool(getattr(args, "queue", None))
+        if not self.review and not self.crop_mode and not args.images:
+            raise SystemExit(
+                "[ERROR] one of --images, --review or --queue is required")
 
         if self.review:
             self.types = self._names_from(self.output / "data.yaml") or list(DEFAULT_TYPES)
@@ -130,6 +132,23 @@ class TypeLabeller:
             if done:
                 self.images = [p for p in self.images if p.stem not in done]
             print(f"[review] {len(self.images)} crop(s) to re-check"
+                  f"{f' ({len(done)} done)' if done else ''}")
+        elif self.crop_mode:
+            # A crop is already the vehicle: no detector, no re-detection. The
+            # classifiers still run so the labeller sees a suggestion, but the
+            # suggestion is reference only and never written.
+            self.types = self._names_from(self.output / "data.yaml") or list(DEFAULT_TYPES)
+            self.colors = self._names_from(self.output / "data_color.yaml") or list(DEFAULT_COLORS)
+            self.detector = None
+            self.type_model, self.type_classes = self._load_model(
+                args.classifier, "type", DEFAULT_TYPES)
+            self.color_model, self.color_classes = self._load_model(
+                args.color_classifier, "colour", DEFAULT_COLORS)
+            self.images = queue_images(args.queue, args.dataset or Path("."))
+            done = self._load_done(self.progress) if args.resume else set()
+            if done:
+                self.images = [p for p in self.images if p.stem not in done]
+            print(f"[queue] {len(self.images)} crop(s) pending"
                   f"{f' ({len(done)} done)' if done else ''}")
         else:
             self.types = list(DEFAULT_TYPES)
@@ -377,6 +396,19 @@ class TypeLabeller:
         return classes[int(idx)], float(conf)
 
     def _detect(self) -> list[dict]:
+        if self.crop_mode:
+            h, w = self.frame.shape[:2]
+            crop = self.frame
+            t = self._predict(self.type_model, self.type_classes, crop)
+            c = self._predict(self.color_model, self.color_classes, crop)
+            return [{
+                "box": (0, 0, w, h),
+                "cls": self.types.index(t[0]) if t and t[0] in self.types else None,
+                "conf": t[1] if t else 0.0,
+                "color": self.colors.index(c[0]) if c and c[0] in self.colors else None,
+                "cconf": c[1] if c else 0.0,
+                "accepted": False,
+            }]
         result = self.detector.predict(
             self.frame, verbose=False, device=self.args.device,
             conf=self.args.conf, classes=list(VEHICLE_CLASSES), imgsz=640,
@@ -930,6 +962,20 @@ class TypeLabeller:
                 print(f"  color {name:12s} {h}/{len(sub)} = {100 * h / len(sub):.0f}%")
 
 
+def queue_images(queue_path: Path, base: Path) -> list[Path]:
+    """Crop paths listed by ``queue_candidates.py``, resolved against ``base``."""
+    images: list[Path] = []
+    for line in queue_path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        row = json.loads(line)
+        rel = row.get("image")
+        if isinstance(rel, str) and rel:
+            images.append(base / rel)
+    return images
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Label vehicle type and colour.")
     parser.add_argument("--images", type=Path, help="Directory of frames (label mode).")
@@ -942,6 +988,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--resume", action="store_true")
     parser.add_argument("--review", action="store_true",
                         help="Re-label saved crops to measure intra-annotator agreement.")
+    parser.add_argument("--queue", type=Path,
+                        help="JSONL from queue_candidates.py: label pre-cropped candidates "
+                             "instead of detecting vehicles in full frames.")
+    parser.add_argument("--dataset", type=Path,
+                        help="Dataset root the queue paths are relative to.")
     parser.add_argument("--fix", action="store_true",
                         help="With --review: write the corrected labels back to disk.")
     parser.add_argument("--review-sample", type=float, default=1.0,
