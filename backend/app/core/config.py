@@ -44,6 +44,15 @@ class Settings(BaseSettings):
     # YOLO
     YOLO_MODEL_PATH: str = "yolo26n.pt"
     YOLO_CONFIDENCE: float = 0.5
+
+    # Vehicle attribute classifiers (tools/train_*_classifier.py output).
+    # The engine refuses to run when these are missing: a body type or colour
+    # guessed without a model would be written to the database as fact.
+    TYPE_MODEL_PATH: str = "/mnt/nina/SmartParking/runs/resnet18_final_type_v2_best.pt"
+    COLOR_MODEL_PATH: str = "/mnt/nina/SmartParking/checkpoints/resnet18_color_v3_best.pt"
+
+    # Where entry crops are written for the incident search thumbnails
+    ENTRY_IMAGE_DIR: str = "/var/lib/smart-parking/entries"
     DETECTION_INTERVAL_MS: int = 500  # Sample frame every N ms
 
     # RTSP — default cameras (overridable via .env)
