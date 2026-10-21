@@ -25,9 +25,9 @@ from torch.utils.data import DataLoader
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from train_type_classifier import (  # noqa: E402
+from _train_common import (  # noqa: E402
     MIN_TEST_SUPPORT,
-    TypeDataset,
+    VehicleCropDataset,
     build_model,
     build_transforms,
     confusion,
@@ -73,7 +73,7 @@ def main(argv: list[str] | None = None) -> None:
         print(f"[eval] WARNING: checkpoint classes {classes} != dataset {dataset_names}")
 
     _, eval_tf = build_transforms(args.img_size)
-    ds = TypeDataset(args.dataset, args.split, eval_tf)
+    ds = VehicleCropDataset(args.dataset, args.split, eval_tf)
     loader = DataLoader(ds, batch_size=args.batch_size, shuffle=False, num_workers=4)
     print(f"[eval] {args.checkpoint.name} on {args.dataset.name}/{args.split} "
           f"({len(ds)} images, {len(classes)} classes)")

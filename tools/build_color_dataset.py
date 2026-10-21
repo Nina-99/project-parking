@@ -7,7 +7,7 @@
 
 The label GUI writes a flat pool (images/ + labels_color/ + data_color.yaml) and
 does not split it. This tool turns that pool into the ``train/valid/test`` layout
-``train_type_classifier.py`` expects, using the COLOUR labels.
+``train_color_classifier.py`` expects, using the COLOUR labels.
 
 Two things it does that a plain copy would not:
 

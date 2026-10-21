@@ -11,9 +11,9 @@ from __future__ import annotations
 import numpy as np
 import pytest
 import torch
+from _train_common import MEAN, STD, build_transforms, summarise
 from PIL import Image
 from torchvision import transforms
-from train_type_classifier import MEAN, STD, build_transforms, summarise
 
 
 def _denormalise(tensor: torch.Tensor) -> np.ndarray:
