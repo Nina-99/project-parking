@@ -84,6 +84,44 @@ tiny classes that happen to be classified correctly; on the colour model it read
 | `gris+plata` reported as separate counts | the split is ±13% noisy, so publish both with that caveat, never as precise values | none |
 | No `otros` label | amarillo (H=87°), naranja (H=32°), marron (72°), beige (85°) sit 30-55° apart; one class would be multi-modal | relabel + retrain |
 
+## furgón: kept as a class, reported as insufficient
+
+`furgon` stays in the label set. Furgones do enter the premises, in small numbers
+(75 of 4.065 labelled crops, 1.85%), and that count is itself part of what the
+statistics have to say. Dropping the class would lose the distinction.
+
+What the thesis may claim is narrower than for the other classes: **five classes
+are evaluated, `furgon` is trained but not evaluated** because its test support is
+17, below `MIN_TEST_SUPPORT = 40`. The full confusion matrix stays in the annex.
+
+Why it cannot be evaluated, measured rather than assumed:
+
+| evidence | value |
+|---|---|
+| within-class coherence (similarity to own centroid) | 0.892 — lowest of all six (others 0.907–0.974) |
+| linear separability from the rest (5-fold AUC) | 0.867 — compare moto > 0.97 |
+| nearest foreign centroid, of 73 furgones | vagoneta 29, camioneta 22, automovil 16, minibus 5, moto 1 |
+| prevalence in the fleet | 1.85%, so roughly 80–100 furgones exist in the footage |
+
+That last row is the ceiling: reaching 40 test samples needs ~270 tracks, and the
+footage does not contain 270 furgones. No labelling strategy fixes it.
+
+**Merging into `camioneta` was rejected on evidence.** The proposal assumed a
+furgón is a nearby variant of a pickup; the neighbourhood says otherwise — its
+most frequent neighbour is `vagoneta`, not `camioneta`. Merging would have created
+a class that matches no region of the feature space and polluted camioneta on the
+way.
+
+**What a furgón count means.** Predicted counts undercount, because a model with
+recall around 0.5 files half of them under another type. The correction factor
+cannot be estimated from 17 test samples, so a report should say "at least N
+detected", never "exactly N", and never derive a trend from it.
+
+**Cleanup pending:** five crops have `minibus` as their nearest foreign centroid
+and are worth a second look (sim 0.69–0.93). Relabel them through
+`label_type_gui.py --review` if the rear windows are there; do not let a model
+decide this.
+
 ## Serving
 
 `GET /api/v1/vehicles/search` returns ranked candidates for a time window. Asking
