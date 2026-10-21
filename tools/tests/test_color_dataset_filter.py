@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 import yaml
-from build_color_dataset import main
+from build_color_dataset import SPLITS, main
 from PIL import Image
 
 
@@ -61,3 +61,59 @@ def test_unknown_type_fails_loudly(tmp_path: Path) -> None:
     _pool(tmp_path)
     with pytest.raises(SystemExit, match="unknown --exclude-types"):
         _built(tmp_path, "out", ["--exclude-types", "camion"])
+
+
+def _add_crops(pool: Path, count: int, prefix: str, type_idx: int = 0,
+               color_idx: int = 0) -> None:
+    for index in range(count):
+        stem = f"{prefix}_{index:02d}"
+        Image.new("RGB", (8, 8), (200, 200, 200)).save(pool / "images" / f"{stem}.jpg")
+        (pool / "labels" / f"{stem}.txt").write_text(
+            f"{type_idx} 0.5 0.5 1 1\n", encoding="utf-8")
+        (pool / "labels_color" / f"{stem}.txt").write_text(
+            f"{color_idx} 0.5 0.5 1 1\n", encoding="utf-8")
+
+
+def _splits(out: Path) -> dict[str, str]:
+    result: dict[str, str] = {}
+    for split in SPLITS:
+        for path in (out / split / "images").glob("*.jpg"):
+            result[path.stem] = split
+    return result
+
+
+def test_rebuilding_over_an_existing_dataset_is_refused(tmp_path: Path) -> None:
+    _pool(tmp_path)
+    _built(tmp_path, "out", ["--exclude-types", "minibus"])
+
+    with pytest.raises(SystemExit, match="already holds a dataset"):
+        main(["--pool", str(tmp_path / "pool"), "--output", str(tmp_path / "out"),
+              "--min-count", "1"])
+
+
+def test_force_replaces_instead_of_mixing(tmp_path: Path) -> None:
+    _pool(tmp_path)
+    _built(tmp_path, "out", [])
+    (tmp_path / "out" / "train" / "images" / "stale_crop.jpg").write_bytes(b"")
+
+    main(["--pool", str(tmp_path / "pool"), "--output", str(tmp_path / "out"),
+          "--min-count", "1", "--force"])
+
+    assert not (tmp_path / "out" / "train" / "images" / "stale_crop.jpg").exists()
+
+
+def test_growing_the_pool_never_moves_an_existing_crop(tmp_path: Path) -> None:
+    """The regression that matters: new labels must not resplit old data."""
+    pool = _pool(tmp_path)
+    _add_crops(pool, 20, "car")
+    _built(tmp_path, "before", [])
+
+    _add_crops(pool, 6, "car", color_idx=1)
+    _built(tmp_path, "after", [])
+
+    before = _splits(tmp_path / "before")
+    after = _splits(tmp_path / "after")
+
+    assert set(before) <= set(after)
+    moved = {stem: (before[stem], after[stem]) for stem in before if before[stem] != after[stem]}
+    assert not moved, f"crops changed split after the pool grew: {moved}"
