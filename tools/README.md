@@ -109,3 +109,6 @@ dataset/
 Calibrate both cameras (`channel16`, `channel6`), then run the extractor over a
 full day, review the `review/` bucket and label the attribute queue with
 `tools/label_attributes.py`.
+
+The vehicle type and colour classifiers built from those attributes are
+documented separately in [`CLASSIFIERS.md`](CLASSIFIERS.md).
