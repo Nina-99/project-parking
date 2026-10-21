@@ -104,3 +104,9 @@ cannot drift.
 - **`gris`/`plata` is near the label's ceiling.** Median lightness differs by 13
   units while each class has a standard deviation of ~16, so signal < noise. Best
   achievable threshold: 69% accuracy.
+- **Run-to-run variance is about 1 point of macro-F1.** Measured by training the
+  same pipeline twice on the same split with the same seed: 0.7719 vs 0.7620. Any
+  A/B below that is noise, including the one that motivated splitting the
+  pipelines: removing saturation jitter moved the colour model by +0.0003
+  (0.7617 base vs 0.7620 colour pipeline). The gain that did show up came from
+  excluding minibuses, +2 to +3 points.
