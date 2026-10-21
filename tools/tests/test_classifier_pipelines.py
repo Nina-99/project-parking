@@ -32,7 +32,12 @@ def test_colour_pipeline_has_no_chroma_jitter() -> None:
 
 
 def test_colour_pipeline_keeps_a_red_car_red() -> None:
-    """A saturated red crop stays red through every random draw."""
+    """A saturated red crop stays red through every random draw.
+
+    The invariant is the share of red, not its absolute value: exposure jitter
+    darkens the whole crop uniformly, which changes brightness without changing
+    the colour. What must never happen is the red channel losing its dominance.
+    """
     train_tf, _ = build_transforms(224, task="color")
     red = Image.new("RGB", (256, 256), (220, 20, 20))
     for seed in range(20):
@@ -46,8 +51,10 @@ def test_colour_pipeline_keeps_a_red_car_red() -> None:
             torch.set_rng_state(random_state)
             np.random.set_state(rng_seed)
         median = np.median(pixel.reshape(-1, 3), axis=0)
-        assert median[0] > 0.6, f"seed {seed}: red channel collapsed to {median[0]:.2f}"
-        assert median[1] < 0.3 and median[2] < 0.3, f"seed {seed}: red shifted to {median}"
+        share = float(median[0]) / float(median.sum())
+        assert median[0] == median.max(), f"seed {seed}: red is no longer dominant ({median})"
+        assert share > 0.6, f"seed {seed}: red share collapsed to {share:.2f}"
+        assert median[1] < 0.2 and median[2] < 0.2, f"seed {seed}: red shifted to {median}"
 
 
 def test_type_pipeline_still_jitters_colour() -> None:

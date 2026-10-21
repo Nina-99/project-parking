@@ -132,7 +132,9 @@ def build_transforms(img_size: int, task: str = "type") -> tuple[transforms.Comp
     ``type`` is judged on silhouette, so photometric jitter is harmless and the
     geometric jitter is aggressive. ``colour`` is judged on hue and saturation:
     jittering those teaches the network to ignore its only signal, which is why
-    the colour pipeline leaves them untouched and only varies exposure.
+    the colour pipeline leaves them untouched and only varies exposure. It also
+    stays geometrically plain -- rotation and blur were measured and they cost
+    more than they buy.
 
     Two tasks, two pipelines. Sharing one is how a colour model ends up unable
     to separate red from grey.
@@ -149,12 +151,13 @@ def build_transforms(img_size: int, task: str = "type") -> tuple[transforms.Comp
         ]
     else:
         augmentation = [
-            transforms.RandomResizedCrop(img_size, scale=(0.6, 1.0)),
-            transforms.RandomRotation(8),
+            transforms.RandomResizedCrop(img_size, scale=(0.7, 1.0)),
             transforms.RandomHorizontalFlip(),
             # Exposure only: no saturation, no hue. Never add them here.
-            transforms.ColorJitter(brightness=0.15, contrast=0.15),
-            MotionBlur(p=0.2),
+            # Measured on the v3 split: this pipeline scores 0.8232, the same
+            # pipeline WITH saturation jitter 0.8075, and adding rotation plus
+            # motion blur on top of it 0.7778. Keep it plain.
+            transforms.ColorJitter(brightness=0.3, contrast=0.3),
         ]
     train_tf = transforms.Compose([
         *augmentation,
