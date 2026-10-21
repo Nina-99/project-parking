@@ -423,9 +423,15 @@ def main(argv: list[str] | None = None) -> None:
         for epoch in range(1, args.epochs_synth + 1):
             loss = train_one_epoch(model, synth_loader, optimizer, criterion, device)
             scheduler.step(loss)
-            scores = evaluate(model, test_loader, device)
+            # evaluate() returns both the raw and the heuristic decoding; stage 1
+            # printed it as a single object and crashed on the first epoch.
+            scores_raw, scores_heur = evaluate(model, test_loader, device)
             print(
-                f"Epoch {epoch:02d}/{args.epochs_synth:02d} | Synth Loss: {loss:.4f} | Test CharAcc: {scores.char_accuracy * 100:.2f}% | ExactMatch: {scores.exact_match * 100:.2f}%"
+                f"Epoch {epoch:02d}/{args.epochs_synth:02d} | Synth Loss: {loss:.4f} | "
+                f"Raw Acc: {scores_raw.char_accuracy * 100:.2f}% "
+                f"(EM:{scores_raw.exact_match * 100:.2f}%) | "
+                f"Heur Acc: {scores_heur.char_accuracy * 100:.2f}% "
+                f"(EM:{scores_heur.exact_match * 100:.2f}%)"
             )
 
         torch.save(model.state_dict(), checkpoint_synth)
