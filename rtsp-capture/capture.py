@@ -117,6 +117,10 @@ class RTSPCapturer:
         if not ok:
             print(f"[{self.camera_id}] could not encode the frame")
             return
+        # The Celery app must be loaded before the task is called, or delay()
+        # resolves against the default app and dials amqp://localhost instead of
+        # the configured broker.
+        from backend.worker.celery_app import celery_app  # noqa: F401
         from backend.worker.tasks.detection import process_frame
 
         try:
