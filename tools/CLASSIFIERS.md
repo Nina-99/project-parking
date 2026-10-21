@@ -104,9 +104,15 @@ cannot drift.
 - **`gris`/`plata` is near the label's ceiling.** Median lightness differs by 13
   units while each class has a standard deviation of ~16, so signal < noise. Best
   achievable threshold: 69% accuracy.
-- **Run-to-run variance is about 1 point of macro-F1.** Measured by training the
-  same pipeline twice on the same split with the same seed: 0.7719 vs 0.7620. Any
-  A/B below that is noise, including the one that motivated splitting the
-  pipelines: removing saturation jitter moved the colour model by +0.0003
-  (0.7617 base vs 0.7620 colour pipeline). The gain that did show up came from
-  excluding minibuses, +2 to +3 points.
+- **Run-to-run variance is about 1 point of macro-F1.** Same pipeline, same
+  split, same seed, two runs: 0.7719 vs 0.7620.
+- **The colour-pipeline change did not pay off.** On the v2 split it was neutral
+  (0.7617 original vs 0.7620 new); on the reproducible v3 split it is 3 points
+  *worse* (0.8075 original vs 0.7778), which is outside the noise floor. Removing
+  saturation jitter was the point of the change and buys nothing: saturation says
+  *how much* colour, not *which* colour, and the classes are separated by hue.
+  The added rotation and motion blur are the likely cost.
+- **The gain that did materialise** came from excluding livery-dominant
+  minibuses: +2 to +3 points.
+- Reference numbers on v3, evaluated classes only: type macro-F1 pending, colour
+  0.8075 (weighted 0.8209) with the original pipeline.
