@@ -70,3 +70,7 @@ alembic/versions/*.pyc
 # Coverage artefacts
 .coverage
 .coverage.*
+
+# Simulation harness leftovers (mediamtx writes its self-signed certs to its cwd)
+auto.crt
+auto.key
