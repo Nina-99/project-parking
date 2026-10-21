@@ -5,10 +5,7 @@ Receives vehicle image → dispatches Celery task → returns session info.
 """
 from __future__ import annotations
 
-import uuid
-
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, File, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.core.database import get_session
@@ -50,9 +47,10 @@ async def register_entry(
     session.add(parking_session)
     await session.flush()
 
-    # TODO: Dispatch Celery task for async detection
-    # from backend.worker.tasks.detection import process_entry
-    # process_entry.delay(str(parking_session.id), image_bytes)
+    # TODO: dispatch detection for this uploaded image. The live path is wired
+    # through rtsp-capture/capture.py -> detection.process_frame; this upload
+    # path still needs a task that fills in the vehicle the route just created.
+    _ = image_bytes
 
     return EntryResponse(
         session_id=parking_session.id,

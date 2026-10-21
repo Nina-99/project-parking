@@ -1,3 +1,5 @@
-from backend.worker.tasks.detection import process_entry, process_exit, ping_task
+"""Celery tasks. Importing this package registers every task with the app."""
 
-__all__ = ["process_entry", "process_exit", "ping_task"]
+from backend.worker.tasks.detection import ping_task, process_frame
+
+__all__ = ["ping_task", "process_frame"]
