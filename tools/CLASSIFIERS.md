@@ -94,6 +94,41 @@ cannot separate them reliably; exact matches rank first.
 rest into `minority`. Both endpoints share `core/colours.py`, so the vocabulary
 cannot drift.
 
+## Queueing a class the model cannot learn yet
+
+`furgon` sits below the learning floor at 59 labelled tracks. Do not rank
+candidates by the model's own prediction: it calls 2 of every 17 furgones
+"furgon", so the queue would surface the ones it already gets right. The queue
+uses the COCO detector class and the trajectory kind instead -- neither sees the
+body type.
+
+```bash
+uv run python tools/queue_candidates.py \
+    --dataset /mnt/nina/SmartParking --target furgon --kinds entry --limit 400 \
+    --exclude-labelled "/mnt/nina/SmartParking/car type/labels.jsonl" \
+    --output "/mnt/nina/SmartParking/car type/queue_furgon.jsonl"
+
+uv run python tools/label_type_gui.py \
+    --queue "/mnt/nina/SmartParking/car type/queue_furgon.jsonl" \
+    --dataset /mnt/nina/SmartParking --output "/mnt/nina/SmartParking/car type" --resume
+```
+
+On the current manifest: 836 truck entries, 822 after one crop per track, 812
+left to label. A geometric prior was measured and rejected -- furgon boxes are
+*less* tall than car boxes, because the gate sees the van from behind.
+
+## Producing the tables
+
+```bash
+uv run python tools/report_metrics.py \
+    --metrics /tmp/opencode/checkpoints/*_metrics.json \
+    --title "Resultados de clasificación" --out docs/results.md
+```
+
+Renders the stored JSON, never recomputes it: per-class P/R/F1 with the Wilson
+interval and support, the reported/excluded verdict, the confusion matrix, and
+one summary row per run.
+
 ## Measured limits (put these in the thesis)
 
 - **72% of the fleet is achromatic** (blanco, plata, gris, negro). A colour filter
