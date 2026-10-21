@@ -15,21 +15,38 @@ unreadable, and they let an operator narrow a list when all they remember is
 ## Data contract
 
 ```
-car type/                     # flat pool written by label_type_gui.py
+pool_20261021/                # FROZEN snapshot: the reference for every dataset
 ├── images/<frame>_b<idx>.jpg
 ├── labels/<frame>_b<idx>.txt         # type index   (data.yaml)
 ├── labels_color/<frame>_b<idx>.txt   # colour index (data_color.yaml)
 ├── labels.jsonl                      # audit: type, colour, confidences
-└── reviewed.jsonl                    # per-frame resume state
+├── reviewed.jsonl                    # per-frame resume state
+└── SNAPSHOT.txt                      # counts, labels.jsonl hash, software commit
 ```
 
-`build_color_dataset.py` and `resplit_by_track.py` turn the pool into the
-`train/valid/test` layout both trainers expect. Two rules matter:
+Build every dataset from the snapshot, never from the live `car type` folder,
+which keeps receiving labels. Rebuilding is refused over a non-empty output
+unless `--force`, and the split is a hash of the frame name, so a new label can
+never move an existing crop between splits.
 
-- **Split by vehicle, never by crop.** Frames of the same car land in exactly one
-  split, otherwise validation measures memorisation.
-- **Filter at build time, not by deleting crops.** The pool stays intact and the
-  build log records what was excluded.
+```bash
+# type
+uv run python tools/build_color_dataset.py \
+    --pool /mnt/nina/SmartParking/pool_20261021 \
+    --output "/mnt/nina/SmartParking/type dataset v2" \
+    --labels-dir labels --data-yaml data.yaml --min-count 10
+
+# colour (minibuses excluded, see below)
+uv run python tools/build_color_dataset.py \
+    --pool /mnt/nina/SmartParking/pool_20261021 \
+    --output "/mnt/nina/SmartParking/color dataset v4" \
+    --labels-dir labels_color --data-yaml data_color.yaml \
+    --exclude-types minibus --min-count 10
+```
+
+The same tool builds both: `--labels-dir` and `--data-yaml` pick which label set
+and class names to read. It also writes a `types.jsonl` sidecar so colour metrics
+can be broken down by vehicle type.
 
 ## Training
 
@@ -165,17 +182,32 @@ On the current manifest: 836 truck entries, 822 after one crop per track, 812
 left to label. A geometric prior was measured and rejected -- furgon boxes are
 *less* tall than car boxes, because the gate sees the van from behind.
 
+**The measured yield says the automated queue was the wrong tool.** Reviewing 495
+of those 822 candidates produced 3 furgones (0.6%). A hand-curated folder of 40
+crops from `entries_fast` produced 34 (85%). The detector's `truck` class is a
+poor proxy for a van on channel 6, and a human looking at candidate crops beat it
+by two orders of magnitude.
+
+Keep that in mind before queueing the next rare class: an independent signal is
+better than the model's own prediction, but only if the signal actually tracks
+the class. Measure the yield on a sample of a hundred before committing hours to
+it.
+
 ## Producing the tables
 
-```bash
-uv run python tools/report_metrics.py \
-    --metrics /tmp/opencode/checkpoints/*_metrics.json \
-    --title "Resultados de clasificación" --out docs/results.md
-```
+Two generators, both rendering stored artefacts rather than recomputing them:
 
-Renders the stored JSON, never recomputes it: per-class P/R/F1 with the Wilson
-interval and support, the reported/excluded verdict, the confusion matrix, and
-one summary row per run.
+```bash
+# composition: what the trainer will see, and which classes clear the gate
+uv run python tools/report_dataset.py \
+    --dataset "/mnt/nina/SmartParking/type dataset v2" \
+    --out "/mnt/nina/SmartParking/reports/type_v2.md"
+
+# metrics: per-class P/R/F1 with interval and support, plus the confusion matrix
+uv run python tools/report_metrics.py \
+    --metrics /mnt/nina/SmartParking/runs/*_metrics.json \
+    --title "Resultados de clasificación" --out "/mnt/nina/SmartParking/reports/todo.md"
+```
 
 ## Measured limits (put these in the thesis)
 
@@ -187,21 +219,22 @@ one summary row per run.
 - **`gris`/`plata` is near the label's ceiling.** Median lightness differs by 13
   units while each class has a standard deviation of ~16, so signal < noise. Best
   achievable threshold: 69% accuracy.
-- **Run-to-run variance is about 1 point of macro-F1.** Same pipeline, same
-  split, same seed, two runs: 0.7719 vs 0.7620.
-- **What the colour pipeline change was worth**, three arms on the v3 split
-  (same seed, 40 epochs, evaluated classes only):
-
-  | pipeline | macro-F1 |
-  |---|---|
-  | original: RRC 0.7-1.0, hflip, jitter b/c/s 0.3 | 0.8075 |
-  | **original minus saturation jitter** | **0.8232** |
-  | minus saturation + rotation ±8° + motion blur | 0.7778 |
-
-  Removing saturation jitter is worth about +1.6 points, at the edge of the noise
-  floor. Adding rotation and blur on top costs about 4.5. The split between the
-  two pipelines was right; the extra augmentation was not.
-- **The other gain** came from excluding livery-dominant minibuses: +2 to +3
-  points.
-- Reference numbers on v3, evaluated classes only: colour **0.8232**
-  (weighted 0.8318); type macro-F1 pending.
+- **Run-to-run variance is larger than one point, and single runs prove nothing.**
+  Two runs of the *same* colour configuration landed at 0.8232 (v3 dataset) and
+  0.7897 (v4 dataset), a 3.4-point spread. The datasets are not the explanation:
+  the v3 checkpoint scores 0.8197 on the v4 test split, versus 0.8232 on its own.
+  So the gap is the training draw, not the data.
+- **What the colour pipeline comparison therefore supports.** Three arms were
+  measured on v3 (original 0.8075, minus saturation 0.8232, minus saturation plus
+  rotation and blur 0.7778). With the spread above, the first two are
+  indistinguishable and the third is clearly worse. The claim that stands is the
+  negative one -- **rotation and blur cost performance** -- not that removing
+  saturation jitter is worth +1.6 points. That claim needs replicates.
+- **The type comparison does stand**, because two independent splits agree:
+  original valid 0.8720 / test 0.8801 against augmented valid 0.8550 / test
+  0.8707.
+- **The only other gain that materialised** came from excluding livery-dominant
+  minibuses: +2 to +3 points.
+- Reference numbers, evaluated classes only, dataset frozen at `pool_20261021`:
+  type **0.8801** (weighted 0.8503, five classes), colour **0.7897–0.8232**
+  depending on the run (weighted 0.8064–0.8318).
