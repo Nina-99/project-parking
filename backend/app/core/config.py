@@ -5,7 +5,10 @@ Todas las variables de entorno se cargan acá.
 """
 from __future__ import annotations
 
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from typing import Annotated
+
+from pydantic import field_validator
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -13,6 +16,9 @@ class Settings(BaseSettings):
         env_file=".env",
         env_file_encoding="utf-8",
         case_sensitive=False,
+        # .env also feeds docker-compose (POSTGRES_*, SECRET_KEY, ...). Those are
+        # not application settings, and forbidding them made every import fail.
+        extra="ignore",
     )
 
     # App
@@ -41,7 +47,24 @@ class Settings(BaseSettings):
     DETECTION_INTERVAL_MS: int = 500  # Sample frame every N ms
 
     # RTSP — default cameras (overridable via .env)
-    RTSP_CAMERAS: list[str] = []
+    # NoDecode: the value is a comma-separated list, not JSON. Without it
+    # pydantic-settings tries to json.loads() the raw string first and fails.
+    RTSP_CAMERAS: Annotated[list[str], NoDecode] = []
+
+    @field_validator("RTSP_CAMERAS", mode="before")
+    @classmethod
+    def _parse_cameras(cls, value: object) -> object:
+        """Accept the documented comma-separated form; an empty value means none.
+
+        pydantic would otherwise try to JSON-decode the raw string, so both an
+        empty value and ``gate-1=rtsp://...,gate-2=...`` failed to load -- the
+        documented format could never have worked.
+        """
+        if value is None or value == "":
+            return []
+        if isinstance(value, str):
+            return [item.strip() for item in value.split(",") if item.strip()]
+        return value
 
     # OCR
     OCR_LANG: str = "en"  # PaddleOCR language
