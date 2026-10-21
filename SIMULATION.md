@@ -131,3 +131,50 @@ expansión por matriz de confusión tenía que hacer.
 docker rm -f parking-sim-pg && docker stop parking-redis
 pkill -f backend.worker.celery_app
 ```
+
+## Por qué el matcheo no usa similitud
+
+Antes de implementar el matcheo se midió si el backbone del clasificador de tipo
+sirve como *embedding* de identidad, que era la vía barata. Sobre 400 crops del
+dataset congelado, 79.800 pares:
+
+| | |
+|---|---|
+| pares del **mismo** vehículo | similitud media **0,860** |
+| pares de vehículos **distintos** | p50 0,786 · p90 **0,973** · p99 0,991 |
+| P(dos vehículos distintos > 0,95) | **19,9%** |
+| P(dos vehículos distintos > 0,99) | 1,26% |
+
+**Uno de cada cinco pares de vehículos sin relación se parece más que el par
+promedio del mismo vehículo.** No existe umbral que separe: en 0,99 todavía
+aceptás 1,26% de falsos positivos y rechazás vehículos reales (0,86). El backbone
+está entrenado para silueta, no para identidad.
+
+Por eso `backend/app/core/matching.py` matchea **solo por identificador exacto**
+(la patente), con piso de confianza, y devuelve `None` si no hay prueba. Un exit
+sin match deja la sesión abierta y publica `vehicle_exit_unmatched`: el operador
+ve el estacionamiento llenarse, no vaciarse solo.
+
+Hoy el engine **no corre OCR**, así que la patente siempre es `None` y ningún exit
+cierra sesión. Está cableado igual: cuando exista un modelo de OCR, lo único que
+cambia es de dónde sale la patente. Alternativas descartadas y por qué:
+
+- **Similitud/reID con este backbone**: medido arriba, no sirve.
+- **Modelo de ReID dedicado**: no hay datos pareados (mismo vehículo en las dos
+  cámaras) para validarlo, así que no se puede afirmar que funcione.
+- **OCR de patentes**: es la vía correcta y hay entrenador
+  (`tools/train_ocr_crnn.py`) y generador sintético, pero **no hay checkpoint
+  entrenado** y solo hay 285 patentes reales.
+
+## Anomalía observada, sin atribuir
+
+En algunas corridas el capturador iteró el bucle solo 2 veces en 20 s, cuando
+debería muestrear 40. Aislado, `_has_motion` dispara correctamente contra el
+stream en vivo (7 de 43 muestras) y el delta medido en vivo supera el umbral en
+~20% de las muestras. La latencia por `read()` no se pudo medir porque el servidor
+ya estaba caído.
+
+Hipótesis a verificar en la máquina real: **HEVC con GOP largo y
+`CAP_PROP_BUFFERSIZE = 1`** puede hacer que `read()` bloquee hasta el próximo frame
+decodificable. Si se reproduce, probar sin fijar el buffer, o publicar con un GOP
+más corto, o reencodear en vez de `-c copy`.
