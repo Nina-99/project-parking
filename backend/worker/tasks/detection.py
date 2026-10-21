@@ -21,8 +21,11 @@ from pathlib import Path
 import cv2
 import numpy as np
 from celery import shared_task
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 from backend.app.core.config import settings
+from backend.app.core.matching import ExitVehicle, OpenSession, find_match
 from backend.app.models.parking_session import ParkingSession, SessionStatus
 from backend.app.models.vehicle import Vehicle
 from backend.worker.db import sync_session
@@ -60,6 +63,49 @@ def save_crop(frame: np.ndarray, detection: object, camera_id: str) -> Path | No
     except OSError:
         return None  # a missing thumbnail must not lose the row
     return path
+
+
+def open_sessions(session: Session) -> list[OpenSession]:
+    """Every active session, with the identifier its vehicle carries."""
+    rows = session.execute(
+        select(ParkingSession, Vehicle)
+        .join(Vehicle, ParkingSession.vehicle_id == Vehicle.id)
+        .where(ParkingSession.status == SessionStatus.ACTIVE)
+    ).all()
+    return [
+        OpenSession(
+            session_id=str(parking.id),
+            vehicle_id=str(vehicle.id),
+            entry_time=parking.entry_time,
+            license_plate=vehicle.license_plate,
+            plate_confidence=vehicle.license_plate_confidence,
+        )
+        for parking, vehicle in rows
+    ]
+
+
+def close_matching_session(
+    session: Session, exit_vehicle: ExitVehicle, camera_id: str,
+) -> str | None:
+    """Close the session this exit belongs to, or leave everything untouched.
+
+    Only an exact identifier closes a session. Anything else -- no plate, a plate
+    below the confidence floor, a plate nobody is inside with -- returns None and
+    the session stays open, so the occupancy count drifts upward visibly instead
+    of silently closing somebody else's session.
+    """
+    match = find_match(exit_vehicle, open_sessions(session))
+    if match is None:
+        return None
+    parking = session.get(ParkingSession, match.session_id)
+    if parking is None:
+        return None
+    parking.exit_gate = camera_id
+    parking.exit_time = datetime.now(UTC)
+    elapsed = (parking.exit_time - parking.entry_time).total_seconds()
+    parking.duration_seconds = max(0, int(elapsed))
+    parking.status = SessionStatus.COMPLETED
+    return str(parking.id)
 
 
 def publish_event(payload: dict) -> bool:
@@ -109,6 +155,7 @@ def process_frame(self, camera_id: str, frame_bytes: bytes,  # noqa: ARG001
         vehicle_id = str(row.id)
 
         session_id: str | None = None
+        matched_session_id: str | None = None
         if gate == "entry":
             parking = ParkingSession(
                 vehicle_id=row.id,
@@ -118,12 +165,23 @@ def process_frame(self, camera_id: str, frame_bytes: bytes,  # noqa: ARG001
             session.add(parking)
             session.flush()
             session_id = str(parking.id)
+        else:
+            # The engine has no OCR yet, so this is always None today and the
+            # branch is honest about it: an exit that cannot be proven leaves the
+            # session open. Wiring it now means only the plate extraction has to
+            # change when OCR arrives.
+            matched_session_id = close_matching_session(
+                session, ExitVehicle(license_plate=None, plate_confidence=None), camera_id)
+
+    event_type = "vehicle_entry" if gate == "entry" else "vehicle_exit"
+    if gate == "exit" and matched_session_id is None:
+        event_type = "vehicle_exit_unmatched"
 
     published = publish_event({
-        "type": "vehicle_entry" if gate == "entry" else "vehicle_exit",
+        "type": event_type,
         "camera_id": camera_id,
         "vehicle_id": vehicle_id,
-        "session_id": session_id,
+        "session_id": session_id or matched_session_id,
         "vehicle_type": vehicle.vehicle_type,
         "color": vehicle.color,
         "timestamp": datetime.now(UTC).isoformat(),
@@ -135,6 +193,8 @@ def process_frame(self, camera_id: str, frame_bytes: bytes,  # noqa: ARG001
         "detections": len(detections),
         "vehicle_id": vehicle_id,
         "session_id": session_id,
+        "matched_session_id": matched_session_id,
+        "event": event_type,
         "vehicle_type": vehicle.vehicle_type,
         "color": vehicle.color,
         "published": published,
