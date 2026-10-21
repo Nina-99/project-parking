@@ -1,0 +1,71 @@
+services:
+  django:
+    build: .
+    container_name: parking-django
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      - DEBUG=True
+      - DATABASE_URL=postgres://parking:parking@postgres:5432/parking
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    volumes:
+      - .:/app
+    command: >
+      sh -c "python manage.py migrate &&
+             python manage.py runserver 0.0.0.0:8000"
+
+  celery-worker:
+    build: .
+    container_name: parking-celery-worker
+    env_file:
+      - .env
+    environment:
+      - DEBUG=True
+      - DATABASE_URL=postgres://parking:parking@postgres:5432/parking
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    command: celery -A config.celery worker --loglevel=info
+
+  postgres:
+    image: postgres:16
+    container_name: parking-postgres
+    ports:
+      - "5432:5432"
+    env_file:
+      - .env
+    environment:
+      - POSTGRES_DB=parking
+      - POSTGRES_USER=parking
+      - POSTGRES_PASSWORD=parking
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U parking -d parking"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7
+    container_name: parking-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+volumes:
+  postgres_data:
+  redis_data:

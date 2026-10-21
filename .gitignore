@@ -1,0 +1,72 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+dist/
+build/
+*.egg
+
+# Virtual environment
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Environment
+.env
+.env.local
+
+# Node / Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Coverage
+coverage/
+coverage.xml
+htmlcov/
+.pytest_cache/
+
+# Mypy / Ruff
+.mypy_cache/
+.ruff_cache/
+
+# Docker
+*.pid
+
+# Migration backups
+alembic/versions/*.pyc
+
+# RTSP logs
+*.log
+
+# Model weights and exported engines: large binaries, fetched or rebuilt locally.
+# Never commit them -- they are artefacts, not source.
+*.pt
+*.pth
+*.onnx
+*.onnx.data
+*.engine
+*.plan
+/checkpoints/
+
+# Debug captures and calibration screenshots (re-capturable, not source)
+/calle_*.png
+/puerta_*.png
+/test_output*.jpg
+/test_output*.png
+
+# Coverage artefacts
+.coverage
+.coverage.*
