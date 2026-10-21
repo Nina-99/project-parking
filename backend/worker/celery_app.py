@@ -26,4 +26,14 @@ celery_app.conf.update(
     task_track_started=True,
     task_time_limit=300,  # 5 min max per task
     task_soft_time_limit=240,
+    # Publishing must fail fast. Defaults retry until the broker answers, and a
+    # producer on the capture path measured 107 seconds blocked before giving up
+    # when Redis was down -- during which the gate camera stopped sampling. An
+    # outage should cost one frame, not two minutes of footage.
+    task_publish_retry=False,
+    broker_transport_options={
+        "socket_connect_timeout": 2,
+        "socket_timeout": 2,
+        "retry_on_timeout": False,
+    },
 )

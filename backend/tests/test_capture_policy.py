@@ -50,3 +50,40 @@ def test_the_warning_is_printed_once_per_streak() -> None:
     assert policy.should_warn() is False
     policy.recovered()
     assert policy.should_warn() is True
+
+
+def test_a_stuck_publish_does_not_block_a_second_dispatch() -> None:
+    """Only one publish in flight: a slow broker must not spawn threads per frame.
+
+    The publisher is replaced by a gate the test controls, so the behaviour under
+    a dead broker is reproduced without a broker.
+    """
+    import threading
+    import time
+
+    from capture import RTSPCapturer
+
+    capturer = RTSPCapturer("gate-test", "rtsp://example/1")
+    release = threading.Event()
+    started = threading.Event()
+
+    class SlowTask:
+        def delay(self, *_args: object) -> None:
+            started.set()
+            release.wait(timeout=5)
+
+    from backend.worker.tasks import detection as module
+
+    original = module.process_frame
+    module.process_frame = SlowTask()
+    try:
+        capturer._dispatch(b"first")
+        assert started.wait(timeout=2), "the first publish never started"
+        before = capturer.dropped_frames
+        capturer._dispatch(b"second")
+        capturer._dispatch(b"third")
+        assert capturer.dropped_frames == before + 2, "extra threads were spawned"
+    finally:
+        module.process_frame = original
+        release.set()
+        time.sleep(0.05)

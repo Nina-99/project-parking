@@ -10,8 +10,10 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import os
 import signal
 import sys
+import threading
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -98,6 +100,8 @@ class RTSPCapturer:
         self.gate = gate
         self.motion_threshold = motion_threshold
         self.reconnect = ReconnectPolicy()
+        self._dispatch_thread: threading.Thread | None = None
+        self.dropped_frames = 0
         self._previous: np.ndarray | None = None
         self._running = False
         self._cap: cv2.VideoCapture | None = None
@@ -178,20 +182,39 @@ class RTSPCapturer:
         if not ok:
             print(f"[{self.camera_id}] could not encode the frame")
             return
-        # The Celery app must be loaded before the task is called, or delay()
-        # resolves against the default app and dials amqp://localhost instead of
-        # the configured broker.
-        from backend.worker.celery_app import celery_app  # noqa: F401
-        from backend.worker.tasks.detection import process_frame
+        self._dispatch(encoded.tobytes())
 
-        try:
-            process_frame.delay(self.camera_id, encoded.tobytes(), self.gate)
-        except Exception as error:  # broker down, queue full, task not imported
-            # A broker blip must not stop the capture loop: the road keeps moving
-            # and the next frame can still make it.
-            print(f"[{self.camera_id}] could not queue the frame: {error}")
+    def _dispatch(self, frame_bytes: bytes) -> None:
+        """Publish the frame without ever blocking the sampling loop.
+
+        Celery's producer retries until the broker answers: with Redis down it was
+        measured blocking for 107 seconds, which stops the camera from sampling
+        for close to two minutes. Setting a short socket timeout did not fix it, so
+        the publish runs on its own thread and the loop keeps reading.
+
+        Only one publish is in flight at a time. While the broker is unhealthy the
+        thread stays stuck; queueing another per frame would spawn hundreds of
+        them. Frames are transient, so dropping them is the correct trade.
+        """
+        if self._dispatch_thread is not None and self._dispatch_thread.is_alive():
+            self.dropped_frames += 1
             return
-        print(f"[{self.camera_id}] frame queued for detection")
+
+        def publish() -> None:
+            # The Celery app must be loaded before the task is called, or delay()
+            # resolves against the default app and dials amqp://localhost.
+            from backend.worker.celery_app import celery_app  # noqa: F401
+            from backend.worker.tasks.detection import process_frame
+
+            try:
+                process_frame.delay(self.camera_id, frame_bytes, self.gate)
+                print(f"[{self.camera_id}] frame queued for detection", flush=True)
+            except Exception as error:  # broker down, queue full, task missing
+                print(f"[{self.camera_id}] could not queue the frame: {error}",
+                      flush=True)
+
+        self._dispatch_thread = threading.Thread(target=publish, daemon=True)
+        self._dispatch_thread.start()
 
     def _reconnect(self) -> None:
         """Reopen the stream after a delay that grows with the attempt count."""
@@ -247,7 +270,13 @@ def main() -> None:
     def _signal_handler(_sig, _frame) -> None:  # type: ignore[no-untyped-def]
         print(f"\n[{args.camera_id}] Shutting down...")
         capturer.stop()
-        sys.exit(0)
+        # A publish stuck on a dead broker leaves a daemon thread inside a socket
+        # call. Normal interpreter shutdown then aborts with "FATAL: exception not
+        # rethrown" and dumps core, so exit without finalising. Buffers are
+        # flushed first; nothing else is left to write.
+        sys.stdout.flush()
+        sys.stderr.flush()
+        os._exit(0)
 
     signal.signal(signal.SIGINT, _signal_handler)
     signal.signal(signal.SIGTERM, _signal_handler)

@@ -166,6 +166,76 @@ cambia es de dónde sale la patente. Alternativas descartadas y por qué:
   (`tools/train_ocr_crnn.py`) y generador sintético, pero **no hay checkpoint
   entrenado** y solo hay 285 patentes reales.
 
+## El broker caído congelaba la cámara (resuelto)
+
+Síntoma: en algunas corridas el capturador iteraba 2 veces en 20 s en vez de ~40.
+La causa no era el video ni el decodificador — se descartaron con datos:
+
+- Lecturas uniformes: media 63 ms, máximo 68 ms (= los 15 fps del stream), con y
+  sin `CAP_PROP_BUFFERSIZE=1`.
+- GOP de **1 segundo**, no largo.
+- El gate de movimiento dispara bien aislado contra el stream vivo (7 de 43
+  muestras) y el delta en vivo supera el umbral en ~20% de las muestras.
+
+La causa era **`process_frame.delay()` con el broker caído: bloqueó 107 segundos**
+antes de rendirse. Configurar `task_publish_retry = False` y timeouts de socket
+**no alcanzó** — siguió bloqueando más de 55 s.
+
+Arreglo (`rtsp-capture/capture.py`): el publish corre en su propio hilo y el bucle
+nunca lo espera. **Un solo vuelo a la vez**: mientras el broker está enfermo el
+hilo queda pegado, y encolar uno por frame crearía cientos. Los frames son
+transitorios, así que se descartan (se cuentan en `dropped_frames`).
+
+Verificado con el broker caído: **35 iteraciones en 20 s** (antes 2), 7 con
+movimiento, 6 frames descartados. Y al salir con un hilo bloqueado, Python abortaba
+con `FATAL: exception not rethrown` y core dump; el handler de señal ahora hace
+`os._exit(0)` tras vaciar los buffers, con salida limpia.
+
+Lección para el resto del sistema: una caída de Redis no puede costar dos minutos
+de footage del portón. Cualquier productor sobre el camino crítico necesita lo
+mismo.
+## Limpieza
+
+```bash
+# Ctrl+C al harness; después
+docker rm -f parking-sim-pg && docker stop parking-redis
+pkill -f backend.worker.celery_app
+```
+
+## Por qué el matcheo no usa similitud
+
+Antes de implementar el matcheo se midió si el backbone del clasificador de tipo
+sirve como *embedding* de identidad, que era la vía barata. Sobre 400 crops del
+dataset congelado, 79.800 pares:
+
+| | |
+|---|---|
+| pares del **mismo** vehículo | similitud media **0,860** |
+| pares de vehículos **distintos** | p50 0,786 · p90 **0,973** · p99 0,991 |
+| P(dos vehículos distintos > 0,95) | **19,9%** |
+| P(dos vehículos distintos > 0,99) | 1,26% |
+
+**Uno de cada cinco pares de vehículos sin relación se parece más que el par
+promedio del mismo vehículo.** No existe umbral que separe: en 0,99 todavía
+aceptás 1,26% de falsos positivos y rechazás vehículos reales (0,86). El backbone
+está entrenado para silueta, no para identidad.
+
+Por eso `backend/app/core/matching.py` matchea **solo por identificador exacto**
+(la patente), con piso de confianza, y devuelve `None` si no hay prueba. Un exit
+sin match deja la sesión abierta y publica `vehicle_exit_unmatched`: el operador
+ve el estacionamiento llenarse, no vaciarse solo.
+
+Hoy el engine **no corre OCR**, así que la patente siempre es `None` y ningún exit
+cierra sesión. Está cableado igual: cuando exista un modelo de OCR, lo único que
+cambia es de dónde sale la patente. Alternativas descartadas y por qué:
+
+- **Similitud/reID con este backbone**: medido arriba, no sirve.
+- **Modelo de ReID dedicado**: no hay datos pareados (mismo vehículo en las dos
+  cámaras) para validarlo, así que no se puede afirmar que funcione.
+- **OCR de patentes**: es la vía correcta y hay entrenador
+  (`tools/train_ocr_crnn.py`) y generador sintético, pero **no hay checkpoint
+  entrenado** y solo hay 285 patentes reales.
+
 ## Anomalía observada, sin atribuir
 
 En algunas corridas el capturador iteró el bucle solo 2 veces en 20 s, cuando
