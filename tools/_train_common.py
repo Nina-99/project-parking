@@ -30,7 +30,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import yaml
-from PIL import Image, ImageFilter
+from PIL import Image
 from torch.utils.data import DataLoader, Dataset
 from torchvision import models, transforms
 
@@ -94,47 +94,17 @@ class VehicleCropDataset(Dataset):
         return [counts.get(i, 0) for i in range(num_classes)]
 
 
-def _line_kernel(angle_deg: float, size: int = 5) -> list[float]:
-    """Normalised line kernel oriented at ``angle_deg``, for motion blur."""
-    rad = math.radians(angle_deg)
-    cos_a, sin_a = math.cos(rad), math.sin(rad)
-    centre = (size - 1) / 2
-    values: list[float] = []
-    for y in range(size):
-        for x in range(size):
-            dy, dx = y - centre, x - centre
-            # Perpendicular distance to the line through the centre.
-            values.append(1.0 if abs(dx * sin_a - dy * cos_a) < 0.8 else 0.0)
-    total = sum(values)
-    return [v / total for v in values]
-
-
-class MotionBlur:
-    """Directional blur along a random axis, simulating a moving vehicle.
-
-    A vehicle crossing the gate is smeared along its direction of travel. The
-    deployment camera sees that smear, so the classifier should too.
-    """
-
-    def __init__(self, p: float = 0.2) -> None:
-        self.p = p
-
-    def __call__(self, image: Image.Image) -> Image.Image:
-        if random.random() > self.p:
-            return image
-        kernel = _line_kernel(random.uniform(0.0, 180.0))
-        return image.filter(ImageFilter.Kernel((5, 5), kernel, scale=1.0))
-
-
 def build_transforms(img_size: int, task: str = "type") -> tuple[transforms.Compose, transforms.Compose]:
     """Train/eval pipelines, split by what the model must not learn to ignore.
 
-    ``type`` is judged on silhouette, so photometric jitter is harmless and the
-    geometric jitter is aggressive. ``colour`` is judged on hue and saturation:
-    jittering those teaches the network to ignore its only signal, which is why
-    the colour pipeline leaves them untouched and only varies exposure. It also
-    stays geometrically plain -- rotation and blur were measured and they cost
-    more than they buy.
+    Both pipelines are deliberately plain: crop, flip, exposure. Rotation and
+    motion blur were measured on both tasks and cost more than they bought, so
+    they are gone rather than left available.
+
+    The one real difference is saturation jitter, and it runs the opposite way
+    for the two labels: ``type`` is judged on silhouette, so colour jitter is
+    harmless and helps; ``colour`` is judged on hue, so jittering saturation
+    teaches the network to ignore part of its own signal.
 
     Two tasks, two pipelines. Sharing one is how a colour model ends up unable
     to separate red from grey.
@@ -143,20 +113,15 @@ def build_transforms(img_size: int, task: str = "type") -> tuple[transforms.Comp
         raise ValueError(f"unknown task {task!r}")
     if task == "type":
         augmentation: list = [
-            transforms.RandomResizedCrop(img_size, scale=(0.6, 1.0)),
-            transforms.RandomRotation(12),
+            transforms.RandomResizedCrop(img_size, scale=(0.7, 1.0)),
             transforms.RandomHorizontalFlip(),
             transforms.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.3),
-            MotionBlur(p=0.2),
         ]
     else:
         augmentation = [
             transforms.RandomResizedCrop(img_size, scale=(0.7, 1.0)),
             transforms.RandomHorizontalFlip(),
             # Exposure only: no saturation, no hue. Never add them here.
-            # Measured on the v3 split: this pipeline scores 0.8232, the same
-            # pipeline WITH saturation jitter 0.8075, and adding rotation plus
-            # motion blur on top of it 0.7778. Keep it plain.
             transforms.ColorJitter(brightness=0.3, contrast=0.3),
         ]
     train_tf = transforms.Compose([
