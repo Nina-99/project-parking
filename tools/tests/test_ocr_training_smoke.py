@@ -25,14 +25,18 @@ def _plate_dataset(root: Path) -> Path:
     labels = root / "plates" / "labels" / "vid"
     images.mkdir(parents=True)
     labels.mkdir(parents=True)
-    for stem, text in (("img_a", "1234ABC"), ("img_b", "5678XYZ")):
+    # Enough synthetic plates that the stage-1 hold-out is exercised too.
+    plates = [("img_b", "5678XYZ")] + [
+        (f"syn_{i:02d}", f"{1000 + i}ABC") for i in range(12)]
+    for stem, text in plates:
         array = np.full((48, 192, 3), 200, dtype=np.uint8)
         Image.fromarray(array).save(images / f"{stem}.jpg")
         (labels / f"{stem}.txt").write_text(text, encoding="utf-8")
 
     ablation = root / "ablation"
     ablation.mkdir()
-    (ablation / "train_synth.txt").write_text("img_a\n", encoding="utf-8")
+    (ablation / "train_synth.txt").write_text(
+        "".join(f"syn_{i:02d}\n" for i in range(12)), encoding="utf-8")
     (ablation / "train_real.txt").write_text("img_b\n", encoding="utf-8")
     (ablation / "test.txt").write_text("img_b\n", encoding="utf-8")
     return root

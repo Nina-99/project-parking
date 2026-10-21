@@ -26,6 +26,10 @@ from plate_dataset.config import DEFAULT_CONFIG_PATH, load_config  # noqa: E402
 from plate_dataset.synth_plates.ablation import OcrScores, score_pairs  # noqa: E402
 
 # Alphabet: 0-9 + A-Z + Blank token (index 0)
+# Deterministic hold-out of the synthetic set, so stage 1 can be judged on the
+# task it is actually training for.
+SYNTH_VAL_SIZE = 300
+
 ALPHABET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 CHAR2IDX = {ch: i + 1 for i, ch in enumerate(ALPHABET)}
 IDX2CHAR = {i + 1: ch for i, ch in enumerate(ALPHABET)}
@@ -408,11 +412,28 @@ def main(argv: list[str] | None = None) -> None:
     if args.stage in ["stage1_synth", "full_pipeline"] and train_synth_stems:
         print("\n=== STARTING STAGE 1: Synthetic Pretraining ===")
         set_stage_freezing(model, "stage1_synth")
+        # Stage 1 used to be judged only on the real test set, so a run that was
+        # not learning its own task looked identical to one that was learning it
+        # and failing to transfer. Those are different problems with different
+        # fixes. Hold out a deterministic slice of the synthetic set, sized
+        # proportionally so a tiny fixture still trains on something.
+        val_size = min(SYNTH_VAL_SIZE, len(train_synth_stems) // 10)
+        synth_val_stems = train_synth_stems[-val_size:] if val_size else []
+        synth_train_stems = (
+            train_synth_stems[:-val_size] if val_size else train_synth_stems)
+
         # Synth images get light augmentation to avoid perfect-pixel memorization
-        synth_ds = PlateOcrDataset(root, train_synth_stems, augment_mode="light")
+        synth_ds = PlateOcrDataset(root, synth_train_stems, augment_mode="light")
         synth_loader = DataLoader(
             synth_ds, batch_size=args.batch_size, shuffle=True, collate_fn=ctc_collate_fn
         )
+        synth_val_loader = None
+        if synth_val_stems:
+            synth_val_ds = PlateOcrDataset(root, synth_val_stems, augment_mode="none")
+            synth_val_loader = DataLoader(
+                synth_val_ds, batch_size=args.batch_size, shuffle=False,
+                collate_fn=ctc_collate_fn,
+            )
 
         optimizer = optim.Adam([p for p in model.parameters() if p.requires_grad], lr=args.lr_synth)
         # Slower LR decay to give CTC time to align characters
@@ -425,13 +446,20 @@ def main(argv: list[str] | None = None) -> None:
             scheduler.step(loss)
             # evaluate() returns both the raw and the heuristic decoding; stage 1
             # printed it as a single object and crashed on the first epoch.
-            scores_raw, scores_heur = evaluate(model, test_loader, device)
+            scores_raw, _ = evaluate(model, test_loader, device)
+            synth_scores = (
+                evaluate(model, synth_val_loader, device)[0]
+                if synth_val_loader is not None else None)
+            synth_part = ""
+            if synth_scores is not None:
+                synth_part = (
+                    f"SynthVal Acc: {synth_scores.char_accuracy * 100:.1f}% "
+                    f"(EM:{synth_scores.exact_match * 100:.1f}%) | ")
             print(
                 f"Epoch {epoch:02d}/{args.epochs_synth:02d} | Synth Loss: {loss:.4f} | "
-                f"Raw Acc: {scores_raw.char_accuracy * 100:.2f}% "
-                f"(EM:{scores_raw.exact_match * 100:.2f}%) | "
-                f"Heur Acc: {scores_heur.char_accuracy * 100:.2f}% "
-                f"(EM:{scores_heur.exact_match * 100:.2f}%)"
+                f"{synth_part}"
+                f"RealTest Acc: {scores_raw.char_accuracy * 100:.1f}% "
+                f"(EM:{scores_raw.exact_match * 100:.1f}%)"
             )
 
         torch.save(model.state_dict(), checkpoint_synth)
