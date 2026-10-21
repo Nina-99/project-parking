@@ -36,6 +36,10 @@ class Settings(BaseSettings):
 
     # Database
     DATABASE_URL: str = "postgresql+asyncpg://parking:parking@localhost:5432/parking"
+    # The worker is synchronous, so it needs the non-async driver. It was only in
+    # .env, never declared here, and extra="ignore" hid the gap until the worker
+    # tried to use it.
+    DATABASE_URL_SYNC: str = "postgresql+psycopg://parking:parking@localhost:5432/parking"
 
     # Redis / Celery
     CELERY_BROKER_URL: str = "redis://localhost:6379/0"
