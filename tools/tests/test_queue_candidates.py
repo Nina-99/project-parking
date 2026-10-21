@@ -95,3 +95,31 @@ def test_the_labeller_can_resolve_the_queue(tmp_path: Path) -> None:
     images = queue_images(queue, tmp_path)
 
     assert images == [tmp_path / "attributes/images/vid/a.jpg"]
+
+
+MIXED = [
+    {"stem": "ch6_track1_f1", "video": "XVR_ch6_main_x", "track_id": 1, "frame": 1,
+     "kind": "entry", "vehicle_class": 7, "crop_hw": [200, 300], "vehicle_score": 1.0},
+    {"stem": "ch6_track2_f2", "video": "XVR_ch6_main_x", "track_id": 2, "frame": 2,
+     "kind": "entry", "vehicle_class": 2, "crop_hw": [200, 300], "vehicle_score": 1.0},
+    {"stem": "ch16_track3_f3", "video": "C.OCCIDENTE_ch16_main_y", "track_id": 3, "frame": 3,
+     "kind": "entry", "vehicle_class": 7, "crop_hw": [200, 300], "vehicle_score": 1.0},
+]
+
+
+def test_explicit_classes_replace_the_named_target(tmp_path: Path) -> None:
+    rows = _queue(_dataset(tmp_path / "ds", MIXED), tmp_path / "q.jsonl",
+                  ["--target", "furgon", "--classes", "2"])
+    assert {row["vehicle_class"] for row in rows} == {2}
+
+
+def test_a_video_filter_keeps_one_camera(tmp_path: Path) -> None:
+    rows = _queue(_dataset(tmp_path / "ds", MIXED), tmp_path / "q.jsonl",
+                  ["--target", "furgon", "--videos", "XVR_ch6"])
+    assert {row["video"] for row in rows} == {"XVR_ch6_main_x"}
+
+
+def test_the_reason_records_that_the_classes_were_explicit(tmp_path: Path) -> None:
+    rows = _queue(_dataset(tmp_path / "ds", MIXED), tmp_path / "q.jsonl",
+                  ["--classes", "2,7"])
+    assert all("(custom)" in row["reason"] for row in rows)

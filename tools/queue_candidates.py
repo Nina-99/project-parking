@@ -55,7 +55,13 @@ def build_parser() -> argparse.ArgumentParser:
                         help="Dataset root holding attributes/manifest.jsonl and the crops.")
     parser.add_argument("--manifest", type=Path,
                         help="Override the manifest path (default: <dataset>/attributes/manifest.jsonl).")
-    parser.add_argument("--target", required=True, choices=sorted(TARGET_CLASSES))
+    parser.add_argument("--target", choices=sorted(TARGET_CLASSES),
+                        help="Named target; sets the detector classes to keep.")
+    parser.add_argument("--classes",
+                        help="Explicit COCO class indices, e.g. '2,7'. Overrides --target.")
+    parser.add_argument("--videos", default="",
+                        help="Only keep rows whose video contains one of these "
+                             "comma-separated substrings, e.g. 'XVR_ch6'.")
     parser.add_argument("--kinds", default="entry",
                         help="Comma-separated trajectory kinds to keep (entry, exit, pass).")
     parser.add_argument("--limit", type=int, default=300)
@@ -77,9 +83,17 @@ def labelled_frames(labels_path: Path) -> set[str]:
     return frames
 
 
-def select(rows: list[dict], target: str, kinds: set[str]) -> list[dict]:
+def resolve_classes(target: str | None, classes: str | None) -> tuple[set[int], str]:
+    """Detector classes to keep, plus the label used in the audit reason."""
+    if classes:
+        return {int(value) for value in classes.split(",") if value.strip()}, "custom"
+    if target:
+        return set(TARGET_CLASSES[target]), target
+    raise SystemExit("[queue] one of --target or --classes is required")
+
+
+def select(rows: list[dict], wanted: set[int], kinds: set[str]) -> list[dict]:
     """Detector class and trajectory kind only: the signals that never see type."""
-    wanted = set(TARGET_CLASSES[target])
     return [row for row in rows
             if row.get("vehicle_class") in wanted and row.get("kind") in kinds]
 
@@ -90,9 +104,11 @@ def main(argv: list[str] | None = None) -> None:
     if not manifest.exists():
         raise SystemExit(f"[queue] manifest not found: {manifest}")
 
+    wanted, label = resolve_classes(args.target, args.classes)
+    needles = [value.strip() for value in args.videos.split(",") if value.strip()]
+
     total = 0
     in_class = 0
-    wanted = set(TARGET_CLASSES[args.target])
     kept: list[dict] = []
     for row in iter_manifest(manifest):
         total += 1
@@ -100,8 +116,11 @@ def main(argv: list[str] | None = None) -> None:
             in_class += 1
             kept.append(row)
 
+    if needles:
+        kept = [row for row in kept
+                if any(needle in str(row.get("video", "")) for needle in needles)]
     kinds = {kind.strip() for kind in args.kinds.split(",") if kind.strip()}
-    selected = select(kept, args.target, kinds)
+    selected = select(kept, wanted, kinds)
     # One crop per vehicle: the same track queues several near-duplicate frames.
     representatives = pick_representatives(selected)
 
@@ -138,7 +157,7 @@ def main(argv: list[str] | None = None) -> None:
                 "kind": row.get("kind"),
                 "vehicle_class": row.get("vehicle_class"),
                 "crop_hw": row.get("crop_hw"),
-                "reason": (f"detector_class={row.get('vehicle_class')}({args.target}); "
+                "reason": (f"detector_class={row.get('vehicle_class')}({label}); "
                            f"kind={row.get('kind')}; representative crop of the track"),
             }) + "\n")
 
@@ -149,7 +168,8 @@ def main(argv: list[str] | None = None) -> None:
             if source.exists():
                 shutil.copy2(source, args.materialise / f"{row['stem']}.jpg")
 
-    print(f"[queue] manifest rows {total}, class {sorted(wanted)} {in_class}")
+    print(f"[queue] manifest rows {total}, class {sorted(wanted)} "
+          f"({in_class} rows{', videos ' + str(needles) if needles else ''})")
     print(f"[queue] kind in {sorted(kinds)}: {len(selected)} -> {len(representatives)} "
           f"one per track ({skipped_labelled} already labelled)")
     print(f"[queue] selected {len(chosen)} (limit {args.limit}) -> {args.output}")
