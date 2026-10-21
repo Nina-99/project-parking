@@ -2,17 +2,24 @@
 
     uv run python tools/build_color_dataset.py \
         --pool "/mnt/nina/SmartParking/car type" \
-        --output "/mnt/nina/SmartParking/color dataset" \
-        --min-count 10
+        --output "/mnt/nina/SmartParking/color dataset v2" \
+        --exclude-types minibus --min-count 10
 
 The label GUI writes a flat pool (images/ + labels_color/ + data_color.yaml) and
 does not split it. This tool turns that pool into the ``train/valid/test`` layout
 ``train_color_classifier.py`` expects, using the COLOUR labels.
 
-Two things it does that a plain copy would not:
+Three things it does that a plain copy would not:
 
 * Drops colour classes with fewer than ``--min-count`` samples (a class with 1
   example cannot be learned and only skews the metrics).
+* Drops crops whose vehicle type is in ``--exclude-types``. Minibuses are left
+  out by project policy: their body is covered by livery whose dominant colour
+  depends on the viewing angle, so the same vehicle is "blue" in profile and
+  "white" from the rear -- the view the gate camera actually gets. That makes
+  their colour label incomparable with a private car's base paint. The filter
+  runs at build time, never by deleting crops from the pool: the pool stays
+  intact and auditable.
 * Splits by *frame*: crops exported from the same frame share the vehicle, so a
   random per-crop split would leak near-duplicates into validation.
 """
@@ -45,6 +52,13 @@ def build_parser() -> argparse.ArgumentParser:
                         help="Label folder inside the pool (labels_color or labels).")
     parser.add_argument("--data-yaml", default="data_color.yaml",
                         help="Which yaml holds the names (data_color.yaml or data.yaml).")
+    parser.add_argument("--type-labels-dir", default="labels",
+                        help="Where the vehicle-type labels live; needed by --exclude-types.")
+    parser.add_argument("--type-yaml", default="data.yaml",
+                        help="Yaml holding the vehicle-type names.")
+    parser.add_argument("--exclude-types", default="",
+                        help="Comma-separated vehicle types to drop, e.g. 'minibus'. "
+                             "Empty keeps everything.")
     parser.add_argument("--min-count", type=int, default=10,
                         help="Drop classes with fewer samples than this.")
     parser.add_argument("--val-frac", type=float, default=0.15)
@@ -60,6 +74,19 @@ def main(argv: list[str] | None = None) -> None:
     old_names = list(data["names"])
 
     items: list[tuple[Path, Path, str, int]] = []
+    excluded = {name.strip() for name in args.exclude_types.split(",") if name.strip()}
+    excluded_idx: set[int] = set()
+    if excluded:
+        type_data = yaml.safe_load((pool / args.type_yaml).read_text(encoding="utf-8"))
+        type_names = list(type_data["names"])
+        unknown = excluded - set(type_names)
+        if unknown:
+            raise SystemExit(
+                f"[color] unknown --exclude-types {sorted(unknown)}; known: {type_names}")
+        excluded_idx = {i for i, name in enumerate(type_names) if name in excluded}
+
+    skipped_by_type = 0
+    missing_type = 0
     for image in sorted((pool / "images").glob("*.jpg")):
         label = pool / args.labels_dir / f"{image.stem}.txt"
         if not label.exists():
@@ -67,7 +94,23 @@ def main(argv: list[str] | None = None) -> None:
         parts = label.read_text(encoding="utf-8").split()
         if not parts or not parts[0].isdigit():
             continue
+        if excluded_idx:
+            type_label = pool / args.type_labels_dir / f"{image.stem}.txt"
+            if type_label.exists():
+                type_parts = type_label.read_text(encoding="utf-8").split()
+                if type_parts and type_parts[0].isdigit() and int(type_parts[0]) in excluded_idx:
+                    skipped_by_type += 1
+                    continue
+            else:
+                missing_type += 1
         items.append((image, label, frame_of(image.stem), int(parts[0])))
+
+    if excluded:
+        note = f"; {missing_type} crops without a type label were kept" if missing_type else ""
+        print(f"[color] excluded vehicle types {sorted(excluded)}: "
+              f"{skipped_by_type} crops dropped{note}")
+    else:
+        print("[color] excluded vehicle types: none")
 
     counts = Counter(cls for _, _, _, cls in items)
     keep = [i for i in range(len(old_names)) if counts.get(i, 0) >= args.min_count]
