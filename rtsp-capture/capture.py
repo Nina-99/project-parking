@@ -13,6 +13,7 @@ import argparse
 import signal
 import sys
 import time
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import cv2
@@ -20,6 +21,51 @@ import numpy as np
 
 # Add parent to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
+
+
+@dataclass
+class ReconnectPolicy:
+    """When a bad read means "reconnect" and how long to wait before trying.
+
+    A live RTSP stream returns a failed read for reasons that are not a
+    disconnection: an empty buffer between keyframes, a lost packet, the decoder
+    waiting for its first reference frame. Reconnecting on the first failure
+    throws away a healthy stream and costs seconds of footage, so failures have
+    to be consecutive to count.
+
+    The delay grows with each attempt and caps, so a camera that is off overnight
+    is retried every half minute instead of in a tight loop.
+    """
+
+    tolerance: int = 30
+    schedule: tuple[int, ...] = (2, 4, 8, 16, 30)
+    failures: int = 0
+    attempts: int = 0
+    warned: bool = field(default=False)
+
+    def failed(self) -> bool:
+        """Record a failed read; True when the stream should be reopened."""
+        self.failures += 1
+        return self.failures > self.tolerance
+
+    def recovered(self) -> None:
+        """A good frame: forget everything, the stream is healthy again."""
+        self.failures = 0
+        self.attempts = 0
+        self.warned = False
+
+    def delay(self) -> int:
+        """Seconds to wait before the next attempt."""
+        index = min(self.attempts, len(self.schedule) - 1)
+        self.attempts += 1
+        return self.schedule[index]
+
+    def should_warn(self) -> bool:
+        """True once per streak, so a hiccup does not flood the log."""
+        if self.warned:
+            return False
+        self.warned = True
+        return True
 
 
 class RTSPCapturer:
@@ -51,6 +97,7 @@ class RTSPCapturer:
         self.sample_interval = sample_interval
         self.gate = gate
         self.motion_threshold = motion_threshold
+        self.reconnect = ReconnectPolicy()
         self._previous: np.ndarray | None = None
         self._running = False
         self._cap: cv2.VideoCapture | None = None
@@ -64,8 +111,12 @@ class RTSPCapturer:
         print(f"[{self.camera_id}] Connecting to {self.rtsp_url} ...")
         self._cap = cv2.VideoCapture(self.rtsp_url)
 
-        if not self._cap.isOpened():
-            print(f"[{self.camera_id}] ERROR: Could not open stream")
+        # A camera that is not up yet is normal at boot, so the first connection
+        # retries with the same backoff instead of giving up.
+        while self._running and not self._cap.isOpened():
+            self.reconnect.failed()
+            self._reconnect()
+        if not self._running:
             return
 
         # Set buffer size to minimum for lower latency
@@ -76,10 +127,20 @@ class RTSPCapturer:
         while self._running:
             ret, frame = self._cap.read()
             if not ret:
-                print(f"[{self.camera_id}] Lost frame — reconnecting in 2s...")
+                if not self.reconnect.failed():
+                    # Tolerated: a dropped packet or a buffer gap, not a
+                    # disconnection. The next read usually recovers.
+                    if self.reconnect.should_warn():
+                        print(f"[{self.camera_id}] read failed, still connected — "
+                              "tolerating up to "
+                              f"{self.reconnect.tolerance} in a row")
+                    continue
+                print(f"[{self.camera_id}] {self.reconnect.failures} reads failed "
+                      "— reopening the stream...")
                 self._reconnect()
                 continue
 
+            self.reconnect.recovered()
             frame_count += 1
             now = time.time()
 
@@ -133,18 +194,22 @@ class RTSPCapturer:
         print(f"[{self.camera_id}] frame queued for detection")
 
     def _reconnect(self) -> None:
-        """Attempt to reconnect to the RTSP stream."""
+        """Reopen the stream after a delay that grows with the attempt count."""
         self._cleanup()
         # The next frame comes from a different moment; comparing against the old
         # one would report motion that never happened.
         self._previous = None
-        time.sleep(2)
+        delay = self.reconnect.delay()
+        print(f"[{self.camera_id}] reconnecting in {delay}s "
+              f"(attempt {self.reconnect.attempts})")
+        time.sleep(delay)
         self._cap = cv2.VideoCapture(self.rtsp_url)
         if self._cap.isOpened():
             self._cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
-            print(f"[{self.camera_id}] Reconnected successfully")
+            self.reconnect.recovered()
+            print(f"[{self.camera_id}] reconnected")
         else:
-            print(f"[{self.camera_id}] Reconnection failed — retrying...")
+            print(f"[{self.camera_id}] could not open the stream; will retry")
 
     def _cleanup(self) -> None:
         """Release the video capture."""
