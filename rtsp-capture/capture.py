@@ -24,6 +24,15 @@ import numpy as np
 # Add parent to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+# Force RTSP over TCP. OpenCV's FFmpeg backend negotiates UDP by default, and
+# mediamtx logs "RTP packets are too big (1460 > 1440), remuxing them into
+# smaller ones" on this footage: fragmented HEVC over UDP loses pieces silently,
+# which shows up as reads that fail with no error and frames that never reach the
+# inference. TCP costs a little latency and removes the failure mode. The receive
+# timeout keeps a dead peer from blocking a read forever.
+os.environ.setdefault("OPENCV_FFMPEG_CAPTURE_OPTIONS",
+                      "rtsp_transport;tcp|stimeout;5000000")
+
 
 @dataclass
 class ReconnectPolicy:
@@ -113,7 +122,7 @@ class RTSPCapturer:
         last_process_time = 0.0
 
         print(f"[{self.camera_id}] Connecting to {self.rtsp_url} ...")
-        self._cap = cv2.VideoCapture(self.rtsp_url)
+        self._cap = cv2.VideoCapture(self.rtsp_url, cv2.CAP_FFMPEG)
 
         # A camera that is not up yet is normal at boot, so the first connection
         # retries with the same backoff instead of giving up.
@@ -226,7 +235,7 @@ class RTSPCapturer:
         print(f"[{self.camera_id}] reconnecting in {delay}s "
               f"(attempt {self.reconnect.attempts})")
         time.sleep(delay)
-        self._cap = cv2.VideoCapture(self.rtsp_url)
+        self._cap = cv2.VideoCapture(self.rtsp_url, cv2.CAP_FFMPEG)
         if self._cap.isOpened():
             self._cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
             self.reconnect.recovered()
