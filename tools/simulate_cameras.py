@@ -39,6 +39,7 @@ from __future__ import annotations
 
 import argparse
 import collections
+import os
 import re
 import shutil
 import signal
@@ -140,6 +141,22 @@ def ffmpeg_command(path: Path, url: str) -> list[str]:
         "-c", "copy",               # no re-encoding: the stream keeps NVR quality
         "-f", "rtsp", url,
     ]
+
+
+def capture_env() -> dict[str, str]:
+    """Environment for capture.py, pointed at published ports on localhost.
+
+    .env addresses the compose service names (``redis``, ``postgres``), which only
+    resolve inside the compose network. Running capture from the host without
+    these overrides fails on name resolution, which reads like a broken simulation
+    rather than a DNS problem.
+    """
+    env = dict(os.environ)
+    env.setdefault("CELERY_BROKER_URL", "redis://localhost:6379/0")
+    env.setdefault("CELERY_RESULT_BACKEND", "redis://localhost:6379/0")
+    env.setdefault("DATABASE_URL_SYNC",
+                   "postgresql+psycopg://parking:parking@localhost:5432/parking")
+    return env
 
 
 def find_mediamtx(explicit: Path | None) -> Path | None:
@@ -268,8 +285,8 @@ def main(argv: list[str] | None = None) -> None:
             for name, url in urls.items():
                 processes.append(subprocess.Popen([
                     sys.executable, str(capture), "--camera-id", name,
-                    "--rtsp-url", url, "--sample-interval", str(args.sample_interval),
-                ]))
+                    "--rtsp-url", url, "--interval", str(args.sample_interval),
+                ], env=capture_env()))
 
         print("\n[sim] running. Ctrl+C to stop.")
         while True:
