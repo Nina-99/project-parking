@@ -87,12 +87,12 @@ tiny classes that happen to be classified correctly; on the colour model it read
 ## furgón: kept as a class, reported as insufficient
 
 `furgon` stays in the label set. Furgones do enter the premises, in small numbers
-(75 of 4.065 labelled crops, 1.85%), and that count is itself part of what the
+(97 of 4.055 labelled crops, 2.4%), and that count is itself part of what the
 statistics have to say. Dropping the class would lose the distinction.
 
 What the thesis may claim is narrower than for the other classes: **five classes
 are evaluated, `furgon` is trained but not evaluated** because its test support is
-17, below `MIN_TEST_SUPPORT = 40`. The full confusion matrix stays in the annex.
+11, below `MIN_TEST_SUPPORT = 40`. The full confusion matrix stays in the annex.
 
 Why it cannot be evaluated, measured rather than assumed:
 
@@ -101,10 +101,20 @@ Why it cannot be evaluated, measured rather than assumed:
 | within-class coherence (similarity to own centroid) | 0.892 — lowest of all six (others 0.907–0.974) |
 | linear separability from the rest (5-fold AUC) | 0.867 — compare moto > 0.97 |
 | nearest foreign centroid, of 73 furgones | vagoneta 29, camioneta 22, automovil 16, minibus 5, moto 1 |
-| prevalence in the fleet | 1.85%, so roughly 80–100 furgones exist in the footage |
+| prevalence in the fleet | 2.4%, and reaching 40 test samples needs ~270 tracks |
 
-That last row is the ceiling: reaching 40 test samples needs ~270 tracks, and the
-footage does not contain 270 furgones. No labelling strategy fixes it.
+The coherence and neighbourhood figures were computed when the class held 73
+crops; it has since grown to 97. The direction has not changed -- furgón remains
+the least coherent class and its nearest neighbour remains vagoneta -- but the
+numbers above are the 73-crop measurement and should be re-run before being
+quoted as final.
+
+**How the class was grown matters, and the automated queue lost.** Reviewing the
+822 COCO-`truck` entry candidates on channel 6 yielded 3 furgones in 495 reviews
+(0.6%). A hand-curated folder of 40 crops from `entries_fast` yielded 34 (85%).
+Both are worth recording: the detector class was a poor proxy for this body type
+on that camera, and the human looking at candidate crops beat it by two orders of
+magnitude.
 
 **Merging into `camioneta` was rejected on evidence.** The proposal assumed a
 furgón is a nearby variant of a pickup; the neighbourhood says otherwise — its
