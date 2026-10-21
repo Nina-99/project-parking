@@ -17,6 +17,7 @@ identical output.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
 from pathlib import Path
@@ -41,12 +42,19 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def fingerprint(stems: list[str]) -> str:
+    """Stable digest of the plate set, so a stale split is detectable."""
+    joined = "\n".join(sorted(stems)).encode("utf-8")
+    return hashlib.sha256(joined).hexdigest()[:16]
+
+
 def main(argv: list[str] | None = None) -> None:
     args = build_parser().parse_args(argv)
     _, glob = load_config(args.config)
     root = args.dataset or Path(glob.output_dir)
 
     by_video = collect_real_plates(root)
+    real_stems = [stem for stems in by_video.values() for stem in stems]
     train_stems, test_stems = split_by_video(
         by_video, test_fraction=args.test_fraction, seed=args.seed
     )
@@ -68,6 +76,12 @@ def main(argv: list[str] | None = None) -> None:
                 "train_real": len(train_stems),
                 "test": len(test_stems),
                 "train_synth": len(synth_stems),
+                # Fingerprint of the inputs. Without it nothing tells you the
+                # split is stale: the plates folder keeps growing as the
+                # extractor runs, and a split made last week quietly trains on
+                # two thirds of the plates that exist today.
+                "real_plates_total": len(real_stems),
+                "real_plates_fingerprint": fingerprint(real_stems),
             },
             indent=4,
         )
@@ -76,9 +90,10 @@ def main(argv: list[str] | None = None) -> None:
     )
 
     print(
-        f"[ablation] videos={len(by_video)} "
+        f"[ablation] videos={len(by_video)} real={len(real_stems)} "
         f"train_real={len(train_stems)} test={len(test_stems)} synth={len(synth_stems)}"
     )
+    print(f"[ablation] fingerprint of the real plates: {fingerprint(real_stems)}")
     if not synth_stems:
         print("[ablation] no synthetic plates yet — run tools/generate_synth_plates.py first")
 
