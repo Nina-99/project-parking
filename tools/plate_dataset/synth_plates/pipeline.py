@@ -15,7 +15,6 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import cv2
-import numpy as np
 
 from plate_dataset.synth_plates.degrade import degrade
 from plate_dataset.synth_plates.renderer import render_clean
@@ -38,6 +37,20 @@ class SynthConfig:
     o_weight: float = 0.45
     four_digit_weight: float = 0.90
     night_prob: float = 0.35
+    # Parallel workers must not append to one file: interleaved lines would
+    # corrupt the manifest. Each worker gets its own shard.
+    manifest_name: str = "manifest.jsonl"
+
+    def rng_for(self, index: int) -> random.Random:
+        """Independent, reproducible random state for a single plate.
+
+        Seeding once per batch ties a plate's appearance to the batch that made
+        it, so the same index would render differently on a resume, a resplit or
+        a second worker -- and a 300k set would not be reproducible from its
+        parameters. Seeding from the index makes index -> plate stable, which is
+        what lets twelve processes share the work.
+        """
+        return random.Random(self.seed * 1_000_003 + index)
 
 
 def _sample_size(rng: random.Random, lo: int, median: int, hi: int) -> int:
@@ -51,25 +64,26 @@ class SynthPipeline:
     config: SynthConfig = field(default_factory=SynthConfig)
 
     def run(self) -> int:
-        rng = random.Random(self.config.count * 100003 + self.config.seed)
-        np.random.seed(self.config.seed + self.config.start_index)
         root = Path(self.root)
         img_dir = root / "plates" / "images" / "synth"
         lbl_dir = root / "plates" / "labels" / "synth"
         img_dir.mkdir(parents=True, exist_ok=True)
         lbl_dir.mkdir(parents=True, exist_ok=True)
-        manifest = root / "manifest.jsonl"
+        manifest = root / self.config.manifest_name
 
         written = 0
         with manifest.open("a", encoding="utf-8") as fh:
             for i in range(self.config.count):
+                index = self.config.start_index + i
+                rng = self.config.rng_for(index)
                 text = sample_text(rng, self.config.four_digit_weight)
                 dept = sample_dept(rng, self.config.o_weight)
                 width = _sample_size(rng, *self.config.width_range, self.config.width_median)
                 height = _sample_size(rng, *self.config.height_range, self.config.height_median)
-                master = render_clean(text, dept)
+                master, die = render_clean(text, dept, rng)
                 crop, params = degrade(master, rng, width, height, self.config.night_prob)
-                stem = f"synth_{self.config.start_index + i:06d}"
+                params.update(die)
+                stem = f"synth_{index:06d}"
                 cv2.imwrite(str(img_dir / f"{stem}.jpg"), crop)
                 (lbl_dir / f"{stem}.txt").write_text(text + "\n", encoding="utf-8")
                 fh.write(json.dumps({
