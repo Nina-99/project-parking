@@ -332,6 +332,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--epochs-real", type=int, default=30)
     # Higher learning rate for synth to escape the blank token local minimum
     parser.add_argument("--lr-synth", type=float, default=3e-3)
+    parser.add_argument("--synth-augment", choices=("none", "light", "heavy"),
+                        default="light",
+                        help="Augmentation for the synthetic stage. 'light' is only "
+                             "brightness, which lets the model memorise the single "
+                             "rendering instead of learning the glyphs.")
     parser.add_argument("--clip-grad", type=float, default=1.5,
                         help="Gradient-norm clip. 1.5 was blocking CTC convergence; "
                              "raise it to see whether the plateau moves.")
@@ -429,7 +434,8 @@ def main(argv: list[str] | None = None) -> None:
             train_synth_stems[:-val_size] if val_size else train_synth_stems)
 
         # Synth images get light augmentation to avoid perfect-pixel memorization
-        synth_ds = PlateOcrDataset(root, synth_train_stems, augment_mode="light")
+        synth_ds = PlateOcrDataset(root, synth_train_stems,
+                                   augment_mode=args.synth_augment)
         synth_loader = DataLoader(
             synth_ds, batch_size=args.batch_size, shuffle=True, collate_fn=ctc_collate_fn
         )
