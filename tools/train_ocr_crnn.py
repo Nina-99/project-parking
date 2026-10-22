@@ -109,29 +109,35 @@ class PlateOcrDataset(Dataset):
         img_width: int = 192,
     ):
         self.root = root
-        self.items: list[tuple[Path, str]] = []
+        # Only paths are held. Labels are read in __getitem__, because reading
+        # them here meant 300k file reads at construction -- and every DataLoader
+        # worker inherits that list when it forks.
+        self.items: list[Path] = []
+        self.image_dir = plates_dir = None  # set below, kept for lazy labels
         self.augment_mode = augment_mode
         self.img_height = img_height
         self.img_width = img_width
 
         plates_dir = root / "plates"
         img_dir = plates_dir / "images"
-        lbl_dir = plates_dir / "labels"
+        self.image_dir = img_dir
+        self.label_dir = plates_dir / "labels"
 
-        # Map stem to (image_path, text)
         stem_set = set(stems)
         for sub in img_dir.glob("**/*.jpg"):
             if sub.stem in stem_set:
-                lbl_path = lbl_dir / sub.relative_to(img_dir).with_suffix(".txt")
-                if lbl_path.exists():
-                    text = lbl_path.read_text(encoding="utf-8").strip().upper()
-                    # Filter valid characters only
-                    clean_text = "".join(c for c in text if c in CHAR2IDX)
-                    if clean_text:
-                        self.items.append((sub, clean_text))
+                self.items.append(sub)
 
     def __len__(self) -> int:
         return len(self.items)
+
+    def _label_for(self, img_path: Path) -> str:
+        """Read the text label on demand, keeping only valid characters."""
+        lbl_path = self.label_dir / img_path.relative_to(self.image_dir).with_suffix(".txt")
+        if not lbl_path.exists():
+            return ""
+        text = lbl_path.read_text(encoding="utf-8").strip().upper()
+        return "".join(c for c in text if c in CHAR2IDX)
 
     def apply_motion_blur(self, img: np.ndarray, size: int = 5) -> np.ndarray:
         kernel = np.zeros((size, size))
@@ -154,7 +160,8 @@ class PlateOcrDataset(Dataset):
         return cv2.warpAffine(img, M, (w, h), borderMode=cv2.BORDER_REPLICATE)
 
     def __getitem__(self, idx: int) -> tuple[torch.Tensor, str]:
-        img_path, label = self.items[idx]
+        img_path = self.items[idx]
+        label = self._label_for(img_path)
         img = cv2.imread(str(img_path))
         if img is None:
             img = np.zeros((self.img_height, self.img_width, 3), dtype=np.uint8)
