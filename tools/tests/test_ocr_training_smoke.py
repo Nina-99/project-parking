@@ -67,3 +67,20 @@ def test_stage2_runs_and_writes_metrics(tmp_path: Path) -> None:
     assert (out / "crnn_stage2_real.pt").exists()
     metrics = json.loads((out / "final_metrics.json").read_text(encoding="utf-8"))
     assert "raw" in metrics or "exact_match" in json.dumps(metrics)
+
+
+def test_a_fixed_schedule_keeps_the_learning_rate() -> None:
+    """The LR must not be the hidden variable when comparing runs."""
+    import torch
+    from train_ocr_crnn import build_scheduler, current_lr
+
+    model = torch.nn.Linear(2, 2)
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+
+    assert build_scheduler(optimizer, "fixed", patience=5) is None
+    assert current_lr(optimizer) == 1e-3
+    plateau = build_scheduler(optimizer, "plateau", patience=5)
+    for _ in range(12):
+        plateau.step(1.0)  # a loss that never improves
+
+    assert current_lr(optimizer) < 1e-3, "plateau should have decayed the rate"

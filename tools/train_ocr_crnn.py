@@ -332,6 +332,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--epochs-real", type=int, default=30)
     # Higher learning rate for synth to escape the blank token local minimum
     parser.add_argument("--lr-synth", type=float, default=3e-3)
+    parser.add_argument("--lr-schedule", choices=("plateau", "fixed"), default="plateau",
+                        help="'plateau' halves the LR on stagnation. On a task that "
+                             "plateaus early it can freeze the run; 'fixed' keeps it "
+                             "constant so the LR is not the variable.")
     parser.add_argument("--synth-augment", choices=("none", "light", "heavy"),
                         default="light",
                         help="Augmentation for the synthetic stage. 'light' is only "
@@ -344,6 +348,24 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--batch-size", type=int, default=32)
     parser.add_argument("--save-dir", type=Path, default=Path("/tmp/opencode/ocr_checkpoints"))
     return parser
+
+
+def build_scheduler(optimizer: optim.Optimizer, mode: str, patience: int):
+    """LR schedule, or None for a constant rate.
+
+    ''plateau'' halves the LR whenever the loss stops improving for ``patience``
+    epochs. On a task that plateaus early that is a trap rather than a rescue:
+    the LR keeps halving, the plateau consolidates, and the run freezes at a
+    mediocre point while looking like it is still training.
+    """
+    if mode == "fixed":
+        return None
+    return optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer, mode="min", factor=0.5, patience=patience)
+
+
+def current_lr(optimizer: optim.Optimizer) -> float:
+    return float(optimizer.param_groups[0]["lr"])
 
 
 def train_one_epoch(model, dataloader, optimizer, criterion, device, clip_grad: float = 1.5):
@@ -449,14 +471,13 @@ def main(argv: list[str] | None = None) -> None:
 
         optimizer = optim.Adam([p for p in model.parameters() if p.requires_grad], lr=args.lr_synth)
         # Slower LR decay to give CTC time to align characters
-        scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-            optimizer, mode="min", factor=0.5, patience=5
-        )
+        scheduler = build_scheduler(optimizer, args.lr_schedule, patience=5)
 
         for epoch in range(1, args.epochs_synth + 1):
             loss = train_one_epoch(model, synth_loader, optimizer, criterion, device,
                                    clip_grad=args.clip_grad)
-            scheduler.step(loss)
+            if scheduler is not None:
+                scheduler.step(loss)
             # evaluate() returns both the raw and the heuristic decoding; stage 1
             # printed it as a single object and crashed on the first epoch.
             scores_raw, _ = evaluate(model, test_loader, device)
@@ -469,7 +490,8 @@ def main(argv: list[str] | None = None) -> None:
                     f"SynthVal Acc: {synth_scores.char_accuracy * 100:.1f}% "
                     f"(EM:{synth_scores.exact_match * 100:.1f}%) | ")
             print(
-                f"Epoch {epoch:02d}/{args.epochs_synth:02d} | Synth Loss: {loss:.4f} | "
+                f"Epoch {epoch:02d}/{args.epochs_synth:02d} | Synth Loss: {loss:.4f} "
+                f"| LR {current_lr(optimizer):.2e} | "
                 f"{synth_part}"
                 f"RealTest Acc: {scores_raw.char_accuracy * 100:.1f}% "
                 f"(EM:{scores_raw.exact_match * 100:.1f}%)",
@@ -495,17 +517,17 @@ def main(argv: list[str] | None = None) -> None:
 
         # Higher LR for Stage 2 adaptation (2e-4) with scheduler
         optimizer = optim.Adam([p for p in model.parameters() if p.requires_grad], lr=args.lr_real)
-        scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-            optimizer, mode="min", factor=0.5, patience=4
-        )
+        scheduler = build_scheduler(optimizer, args.lr_schedule, patience=4)
 
         for epoch in range(1, args.epochs_real + 1):
             loss = train_one_epoch(model, real_loader, optimizer, criterion, device,
                                    clip_grad=args.clip_grad)
-            scheduler.step(loss)
+            if scheduler is not None:
+                scheduler.step(loss)
             scores_raw, scores_heur = evaluate(model, test_loader, device)
             print(
-                f"Epoch {epoch:02d}/{args.epochs_real:02d} | Real Loss: {loss:.4f} | "
+                f"Epoch {epoch:02d}/{args.epochs_real:02d} | Real Loss: {loss:.4f} "
+                f"| LR {current_lr(optimizer):.2e} | "
                 f"Raw Acc: {scores_raw.char_accuracy * 100:.1f}% (EM:{scores_raw.exact_match * 100:.1f}%) | "
                 f"Heur Acc: {scores_heur.char_accuracy * 100:.1f}% "
                 f"(EM:{scores_heur.exact_match * 100:.1f}%)",
