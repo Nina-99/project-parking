@@ -332,13 +332,16 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--epochs-real", type=int, default=30)
     # Higher learning rate for synth to escape the blank token local minimum
     parser.add_argument("--lr-synth", type=float, default=3e-3)
+    parser.add_argument("--clip-grad", type=float, default=1.5,
+                        help="Gradient-norm clip. 1.5 was blocking CTC convergence; "
+                             "raise it to see whether the plateau moves.")
     parser.add_argument("--lr-real", type=float, default=2e-4)
     parser.add_argument("--batch-size", type=int, default=32)
     parser.add_argument("--save-dir", type=Path, default=Path("/tmp/opencode/ocr_checkpoints"))
     return parser
 
 
-def train_one_epoch(model, dataloader, optimizer, criterion, device):
+def train_one_epoch(model, dataloader, optimizer, criterion, device, clip_grad: float = 1.5):
     model.train()
     total_loss = 0.0
     for imgs, targets, target_lengths, _ in dataloader:
@@ -358,8 +361,11 @@ def train_one_epoch(model, dataloader, optimizer, criterion, device):
         loss = criterion(log_probs, targets, input_lengths, target_lengths)
         loss.backward()
 
-        # EXTREMELY strict gradient clipping to prevent the BiLSTM from falling into the blank token collapse hole
-        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.5)
+        # Clipping guards against the blank-token collapse, but 1.5 is strict
+        # enough to hold CTC back: with Adam at 3e-3 the model can plateau far
+        # from converged. It is a knob now, because the right value is an
+        # empirical question, not a matter of taste.
+        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=clip_grad)
         optimizer.step()
 
         total_loss += loss.item()
@@ -442,7 +448,8 @@ def main(argv: list[str] | None = None) -> None:
         )
 
         for epoch in range(1, args.epochs_synth + 1):
-            loss = train_one_epoch(model, synth_loader, optimizer, criterion, device)
+            loss = train_one_epoch(model, synth_loader, optimizer, criterion, device,
+                                   clip_grad=args.clip_grad)
             scheduler.step(loss)
             # evaluate() returns both the raw and the heuristic decoding; stage 1
             # printed it as a single object and crashed on the first epoch.
@@ -487,7 +494,8 @@ def main(argv: list[str] | None = None) -> None:
         )
 
         for epoch in range(1, args.epochs_real + 1):
-            loss = train_one_epoch(model, real_loader, optimizer, criterion, device)
+            loss = train_one_epoch(model, real_loader, optimizer, criterion, device,
+                                   clip_grad=args.clip_grad)
             scheduler.step(loss)
             scores_raw, scores_heur = evaluate(model, test_loader, device)
             print(
