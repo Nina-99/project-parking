@@ -388,8 +388,10 @@ def main_for_task(task: str, argv: list[str] | None = None) -> None:
             flag = "  <- best"
         else:
             flag = ""
+        # flush: without it a piped stdout buffers for the whole run and the
+        # training looks hung instead of simply quiet.
         print(f"Epoch {epoch:02d}/{args.epochs:02d} | loss {loss:.4f} | "
-              f"valid macro-F1 {f1:.4f}{flag}")
+              f"valid macro-F1 {f1:.4f}{flag}", flush=True)
 
     print(f"\n[{task}] best valid macro-F1: {best_f1:.4f}  ({checkpoint})")
     model.load_state_dict(torch.load(checkpoint, map_location=device))

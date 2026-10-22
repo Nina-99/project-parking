@@ -459,7 +459,8 @@ def main(argv: list[str] | None = None) -> None:
                 f"Epoch {epoch:02d}/{args.epochs_synth:02d} | Synth Loss: {loss:.4f} | "
                 f"{synth_part}"
                 f"RealTest Acc: {scores_raw.char_accuracy * 100:.1f}% "
-                f"(EM:{scores_raw.exact_match * 100:.1f}%)"
+                f"(EM:{scores_raw.exact_match * 100:.1f}%)",
+                flush=True,
             )
 
         torch.save(model.state_dict(), checkpoint_synth)
@@ -492,7 +493,9 @@ def main(argv: list[str] | None = None) -> None:
             print(
                 f"Epoch {epoch:02d}/{args.epochs_real:02d} | Real Loss: {loss:.4f} | "
                 f"Raw Acc: {scores_raw.char_accuracy * 100:.1f}% (EM:{scores_raw.exact_match * 100:.1f}%) | "
-                f"Heur Acc: {scores_heur.char_accuracy * 100:.1f}% (EM:{scores_heur.exact_match * 100:.1f}%)"
+                f"Heur Acc: {scores_heur.char_accuracy * 100:.1f}% "
+                f"(EM:{scores_heur.exact_match * 100:.1f}%)",
+                flush=True,
             )
 
         torch.save(model.state_dict(), checkpoint_final)
