@@ -346,6 +346,9 @@ def build_parser() -> argparse.ArgumentParser:
                              "raise it to see whether the plateau moves.")
     parser.add_argument("--lr-real", type=float, default=2e-4)
     parser.add_argument("--batch-size", type=int, default=32)
+    parser.add_argument("--loader-workers", type=int, default=8,
+                        help="Decoding workers. Zero makes the GPU wait on a single "
+                             "core to decode 300k JPEGs, which is most of the epoch.")
     parser.add_argument("--save-dir", type=Path, default=Path("/tmp/opencode/ocr_checkpoints"))
     return parser
 
@@ -427,6 +430,7 @@ def main(argv: list[str] | None = None) -> None:
     )
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    pin_memory = device.type == "cuda"
     print(f"[ocr-train] Using device: {device}")
 
     args.save_dir.mkdir(parents=True, exist_ok=True)
@@ -438,7 +442,8 @@ def main(argv: list[str] | None = None) -> None:
 
     test_ds = PlateOcrDataset(root, test_stems, augment_mode="none")
     test_loader = DataLoader(
-        test_ds, batch_size=args.batch_size, shuffle=False, collate_fn=ctc_collate_fn
+        test_ds, batch_size=args.batch_size, shuffle=False, collate_fn=ctc_collate_fn,
+        num_workers=args.loader_workers, pin_memory=pin_memory,
     )
 
     # --- STAGE 1: Synthetic Pretraining ---
@@ -459,7 +464,8 @@ def main(argv: list[str] | None = None) -> None:
         synth_ds = PlateOcrDataset(root, synth_train_stems,
                                    augment_mode=args.synth_augment)
         synth_loader = DataLoader(
-            synth_ds, batch_size=args.batch_size, shuffle=True, collate_fn=ctc_collate_fn
+            synth_ds, batch_size=args.batch_size, shuffle=True, collate_fn=ctc_collate_fn,
+            num_workers=args.loader_workers, pin_memory=pin_memory,
         )
         synth_val_loader = None
         if synth_val_stems:
@@ -467,6 +473,7 @@ def main(argv: list[str] | None = None) -> None:
             synth_val_loader = DataLoader(
                 synth_val_ds, batch_size=args.batch_size, shuffle=False,
                 collate_fn=ctc_collate_fn,
+                num_workers=args.loader_workers, pin_memory=pin_memory,
             )
 
         optimizer = optim.Adam([p for p in model.parameters() if p.requires_grad], lr=args.lr_synth)
@@ -512,7 +519,8 @@ def main(argv: list[str] | None = None) -> None:
         # Real images need heavy augmentation to generalize
         real_ds = PlateOcrDataset(root, train_real_stems, augment_mode="heavy")
         real_loader = DataLoader(
-            real_ds, batch_size=args.batch_size, shuffle=True, collate_fn=ctc_collate_fn
+            real_ds, batch_size=args.batch_size, shuffle=True, collate_fn=ctc_collate_fn,
+            num_workers=args.loader_workers, pin_memory=pin_memory,
         )
 
         # Higher LR for Stage 2 adaptation (2e-4) with scheduler
