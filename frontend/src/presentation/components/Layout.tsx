@@ -1,14 +1,15 @@
 import { Outlet, NavLink } from "react-router-dom";
-import { Car, HistoryIcon, LayoutDashboard } from "lucide-react";
-import { useWebSocket } from "../hooks/useWebSocket";
+import { Car, HistoryIcon, LayoutDashboard, Search } from "lucide-react";
+import { useLiveEvents } from "../../application/useLiveEvents";
 
 const navItems = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
+  { to: "/incidents", label: "Incidentes", icon: Search },
   { to: "/history", label: "Historial", icon: HistoryIcon },
 ];
 
 export function Layout() {
-  useWebSocket();
+  useLiveEvents();
 
   return (
     <div className="min-h-screen bg-gray-50">
