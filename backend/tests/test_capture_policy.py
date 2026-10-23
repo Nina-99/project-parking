@@ -77,11 +77,11 @@ def test_a_stuck_publish_does_not_block_a_second_dispatch() -> None:
     original = module.process_frame
     module.process_frame = SlowTask()
     try:
-        capturer._dispatch(b"first")
+        capturer._dispatch(b"first", "2026-05-04T10:00:00+00:00")
         assert started.wait(timeout=2), "the first publish never started"
         before = capturer.dropped_frames
-        capturer._dispatch(b"second")
-        capturer._dispatch(b"third")
+        capturer._dispatch(b"second", "2026-05-04T10:00:00+00:00")
+        capturer._dispatch(b"third", "2026-05-04T10:00:00+00:00")
         assert capturer.dropped_frames == before + 2, "extra threads were spawned"
     finally:
         module.process_frame = original

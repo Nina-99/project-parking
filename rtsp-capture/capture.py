@@ -8,6 +8,7 @@ import sys
 import threading
 import time
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from pathlib import Path
 
 import cv2
@@ -176,9 +177,11 @@ class RTSPCapturer:
         if not ok:
             print(f"[{self.camera_id}] could not encode the frame")
             return
-        self._dispatch(encoded.tobytes())
+        # The frame's time, not the task's: a queue backlog must not move a
+        # vehicle to a later hour.
+        self._dispatch(encoded.tobytes(), datetime.now(UTC).isoformat())
 
-    def _dispatch(self, frame_bytes: bytes) -> None:
+    def _dispatch(self, frame_bytes: bytes, captured_at: str) -> None:
         """Publish the frame without ever blocking the sampling loop.
 
         Celery's producer retries until the broker answers: with Redis down it was
@@ -201,7 +204,7 @@ class RTSPCapturer:
             from backend.worker.tasks.detection import process_frame
 
             try:
-                process_frame.delay(self.camera_id, frame_bytes, self.gate)
+                process_frame.delay(self.camera_id, frame_bytes, self.gate, captured_at)
                 print(f"[{self.camera_id}] frame queued for detection", flush=True)
             except Exception as error:  # broker down, queue full, task missing
                 print(f"[{self.camera_id}] could not queue the frame: {error}",
