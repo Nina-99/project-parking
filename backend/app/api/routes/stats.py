@@ -1,23 +1,22 @@
 """Read-only aggregates over the stored vehicles and sessions."""
 from __future__ import annotations
 
-import uuid
 from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.app.core.database import get_session
+from backend.app.models.parking_session import ParkingSession, SessionStatus
+from backend.app.models.vehicle import Vehicle
+from backend.app.schemas.parking import ActiveSessionResponse, SessionResponse
 from backend.domain.colours import (
     MIN_REPORT_CONFIDENCE,
     REPORTABLE_COLORS,
     colour_counts,
     report_bucket,
 )
-from backend.app.core.database import get_session
-from backend.app.models.parking_session import ParkingSession, SessionStatus
-from backend.app.models.vehicle import Vehicle
-from backend.app.schemas.parking import ActiveSessionResponse, SessionResponse
 
 router = APIRouter()
 
