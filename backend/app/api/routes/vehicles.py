@@ -15,12 +15,16 @@ Two decisions worth keeping in mind:
 """
 from __future__ import annotations
 
+import uuid
 from datetime import datetime
+from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import FileResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.app.core.config import settings
 from backend.app.core.database import get_session
 from backend.app.models.vehicle import Vehicle
 from backend.app.schemas.vehicle import VehicleSearchHit
@@ -28,6 +32,22 @@ from backend.domain.colours import expand_color
 from backend.domain.incident import rank_hits
 
 router = APIRouter()
+
+
+def resolve_image_path(stored: str | None, root: Path | None = None) -> Path | None:
+    """A crop path is served only when it lives inside the image root.
+
+    The stored value comes from the database, but a database is not a trust
+    boundary: a bad row must not turn into an arbitrary file read.
+    """
+    if not stored:
+        return None
+    base = (root or Path(settings.ENTRY_IMAGE_DIR)).resolve()
+    candidate = Path(stored).resolve()
+    if not candidate.is_relative_to(base) or not candidate.is_file():
+        return None
+    return candidate
+
 
 
 @router.get("/search", response_model=list[VehicleSearchHit])
@@ -73,9 +93,30 @@ async def search_vehicles(
             vehicle_type=row.vehicle_type,
             color=row.color,
             color_confidence=row.color_confidence,
-            entry_image_path=row.entry_image_path,
+            image_url=(
+                f"/api/v1/vehicles/{row.id}/image" if row.entry_image_path else None
+            ),
             created_at=row.created_at,
             match="exact" if not color or row.color == color else "neighbour",
         )
         for row in ranked
     ]
+
+
+@router.get("/{vehicle_id}/image", response_class=FileResponse)
+async def vehicle_image(
+    vehicle_id: uuid.UUID,
+    db_session: AsyncSession = Depends(get_session),
+) -> FileResponse:
+    """The crop for one observation. Paths never leave the server."""
+    vehicle = await db_session.get(Vehicle, vehicle_id)
+    if vehicle is None:
+        raise HTTPException(status_code=404, detail="vehicle not found")
+    path = resolve_image_path(vehicle.entry_image_path)
+    if path is None:
+        raise HTTPException(status_code=404, detail="image not found")
+    return FileResponse(
+        path,
+        media_type="image/jpeg",
+        headers={"Cache-Control": "private, max-age=86400"},
+    )

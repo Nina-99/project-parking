@@ -41,6 +41,6 @@ class VehicleSearchHit(BaseModel):
     vehicle_type: str | None
     color: str | None
     color_confidence: float | None
-    entry_image_path: str | None
+    image_url: str | None
     created_at: datetime
     match: Literal["exact", "neighbour"]
