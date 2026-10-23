@@ -5,6 +5,7 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 
 from backend.app.api import health
+from backend.app.api.auth import require_operator
 from backend.app.core.database import get_session
 from backend.app.main import app
 
@@ -25,6 +26,7 @@ class _EmptySession:
 @pytest.fixture
 async def client():
     app.dependency_overrides[get_session] = lambda: _EmptySession()
+    app.dependency_overrides[require_operator] = lambda: "tester"
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         yield ac

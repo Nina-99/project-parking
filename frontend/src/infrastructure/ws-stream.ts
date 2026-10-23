@@ -31,9 +31,9 @@ export class WebSocketEventStream implements EventStream {
       }
     };
 
-    this.socket.onclose = () => {
+    this.socket.onclose = (event) => {
       this.socket = null;
-      if (this.stopped) return;
+      if (this.stopped || event.code === 1008) return;
       this.reconnectTimer = window.setTimeout(() => this.connect(), RECONNECT_MS);
     };
 

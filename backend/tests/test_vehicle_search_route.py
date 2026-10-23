@@ -14,6 +14,7 @@ from types import SimpleNamespace
 import pytest
 from httpx import ASGITransport, AsyncClient
 
+from backend.app.api.auth import require_operator
 from backend.app.core.database import get_session
 from backend.app.main import app
 
@@ -59,6 +60,7 @@ def recorder():
 @pytest.fixture
 async def client(recorder):
     app.dependency_overrides[get_session] = lambda: recorder
+    app.dependency_overrides[require_operator] = lambda: "tester"
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         yield ac

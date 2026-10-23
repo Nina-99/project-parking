@@ -4,10 +4,12 @@ from __future__ import annotations
 import asyncio
 from contextlib import asynccontextmanager, suppress
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.adapters.inbound.http.realtime import relay_events
+from backend.app.api.auth import require_operator
+from backend.app.api.auth import router as auth_router
 from backend.app.api.health import router as health_router
 from backend.app.api.routes import router as api_router
 from backend.app.core.config import settings
@@ -46,4 +48,9 @@ app.add_middleware(
 )
 
 app.include_router(health_router)
-app.include_router(api_router, prefix="/api/v1")
+app.include_router(auth_router, prefix="/api/v1")
+app.include_router(
+    api_router,
+    prefix="/api/v1",
+    dependencies=[Depends(require_operator)],
+)

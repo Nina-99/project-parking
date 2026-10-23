@@ -1,6 +1,7 @@
 import { Outlet, NavLink } from "react-router-dom";
-import { Car, HistoryIcon, LayoutDashboard, Search } from "lucide-react";
+import { Car, HistoryIcon, LayoutDashboard, LogOut, Search } from "lucide-react";
 import { useLiveEvents } from "../../application/useLiveEvents";
+import { useSession } from "../../application/session";
 
 const navItems = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -10,6 +11,7 @@ const navItems = [
 
 export function Layout() {
   useLiveEvents();
+  const { user, logout } = useSession();
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -40,6 +42,16 @@ export function Layout() {
                   {item.label}
                 </NavLink>
               ))}
+              <span className="mx-2 h-6 w-px bg-gray-200" />
+              <span className="text-sm text-gray-500">{user}</span>
+              <button
+                type="button"
+                onClick={() => void logout()}
+                title="Cerrar sesión"
+                className="p-2 rounded-lg text-gray-500 hover:text-gray-900 hover:bg-gray-100 transition-colors"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
             </nav>
           </div>
         </div>

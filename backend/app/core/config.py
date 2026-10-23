@@ -26,6 +26,14 @@ class Settings(BaseSettings):
     VERSION: str = "0.2.0"
     DEBUG: bool = True
 
+    # Auth. The read API exposes plates, so it is not public.
+    SECRET_KEY: str = "dev-secret-change-me"
+    AUTH_COOKIE_NAME: str = "parking_session"
+    AUTH_COOKIE_SECURE: bool = False  # true behind TLS
+    AUTH_TOKEN_TTL_SECONDS: int = 8 * 3600
+    OPERATOR_USER: str = "operator"
+    OPERATOR_PASSWORD: str = "operator"
+
     # CORS
     CORS_ORIGINS: list[str] = [
         "http://localhost:5173",

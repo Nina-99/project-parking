@@ -24,3 +24,10 @@ export interface EventStream {
   disconnect(): void;
   onMessage(handler: MessageHandler): () => void;
 }
+
+export interface AuthPort {
+  /** The logged-in operator, or a rejection when there is no session. */
+  me(): Promise<string>;
+  login(username: string, password: string): Promise<string>;
+  logout(): Promise<void>;
+}

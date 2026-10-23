@@ -13,6 +13,7 @@ from types import SimpleNamespace
 
 from httpx import ASGITransport, AsyncClient
 
+from backend.app.api.auth import require_operator
 from backend.app.api.routes.vehicles import resolve_image_path
 from backend.app.core.config import settings
 from backend.app.core.database import get_session
@@ -37,6 +38,7 @@ async def _client(vehicle: SimpleNamespace | None):
             return vehicle
 
     app.dependency_overrides[get_session] = lambda: _Session()
+    app.dependency_overrides[require_operator] = lambda: "tester"
     try:
         async with AsyncClient(
             transport=ASGITransport(app=app), base_url="http://test",

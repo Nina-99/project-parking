@@ -13,6 +13,7 @@ const BASE = "/api/v1";
 
 async function fetchJson<T>(path: string): Promise<T> {
   const response = await fetch(`${BASE}${path}`, {
+    credentials: "include",
     headers: { Accept: "application/json" },
   });
   if (!response.ok) {
