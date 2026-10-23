@@ -306,15 +306,24 @@ def evaluate(model: ResNetCRNN, dataloader: DataLoader, device: torch.device) ->
 
 def set_stage_freezing(model: ResNetCRNN, stage: str):
     if stage == "stage1_synth":
+        # Stage 1 trains the BiLSTM+FC head only; the whole backbone stays frozen
+        # on its ImageNet weights.
+        #
+        # This is deliberate and measured, not an accident of prefix matching.
+        # Stage 1 runs at lr 3e-3, which is a head learning rate. Unfreezing
+        # layer3/layer4 at that rate (10.49M extra params, 48% of the model) on a
+        # synthetic->real domain shift destroys the pretrained features and CTC
+        # collapses to the all-blank equilibrium:
+        #   measured 2026-10-22 -> loss flat at 2.83, SynthVal Acc 7-10%,
+        #   exact match 0.0% for 14 consecutive epochs.
+        # Deep adaptation is stage 2's job, where the backbone is unfrozen at
+        # lr 2e-4. If you want to unfreeze here, lower --lr-synth to ~3e-4 and
+        # treat it as a separate ablation, never as the default run.
         print(
-            "[transfer-learning] Stage 1: Freezing early ResNet layers (layer1/layer2) to prevent domain overfitting"
+            "[transfer-learning] Stage 1: backbone frozen (whole), training the BiLSTM+FC head only"
         )
-        # Freeze conv1, bn1, layer1, layer2
-        for name, param in model.backbone.named_parameters():
-            if any(prefix in name for prefix in ["0.", "1.", "4.", "5."]):
-                param.requires_grad = False
-            else:
-                param.requires_grad = True
+        for param in model.backbone.parameters():
+            param.requires_grad = False
     elif stage == "stage2_real":
         print("[transfer-learning] Stage 2: UNFREEZING full backbone for deep real adaptation")
         for param in model.backbone.parameters():
