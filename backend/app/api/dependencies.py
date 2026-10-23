@@ -7,8 +7,12 @@ the thread and event loop that created it.
 from __future__ import annotations
 
 from collections.abc import Callable
+from functools import lru_cache
+
+import redis.asyncio as redis
 
 from backend.adapters.outbound.bus.redis_publisher import RedisEventPublisher
+from backend.adapters.outbound.cache.rate_limit import RedisRateLimiter
 from backend.adapters.outbound.db.session import get_session_factory
 from backend.adapters.outbound.db.unit_of_work import SqlAlchemyUnitOfWork
 from backend.adapters.outbound.time import SystemClock
@@ -25,3 +29,17 @@ def get_publisher() -> RedisEventPublisher:
 
 def get_clock() -> SystemClock:
     return SystemClock()
+
+
+@lru_cache
+def get_rate_limiter() -> RedisRateLimiter:
+    """One client for the process; FastAPI calls this per request."""
+    return RedisRateLimiter(
+        redis.Redis.from_url(
+            settings.CELERY_BROKER_URL,
+            socket_connect_timeout=1,
+            socket_timeout=1,
+        ),
+        limit=settings.LOGIN_RATE_LIMIT,
+        window_seconds=settings.LOGIN_RATE_WINDOW_SECONDS,
+    )

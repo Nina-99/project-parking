@@ -57,6 +57,28 @@ services:
     command: >
       sh -c "uv run celery -A backend.worker.celery_app worker --loglevel=info --concurrency=1"
 
+  # Celery Beat: runs the retention schedule
+  beat:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    container_name: parking-beat
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://parking:parking@postgres:5432/parking
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    volumes:
+      - .:/app
+    command: >
+      sh -c "uv run celery -A backend.worker.celery_app beat --loglevel=info"
+
   postgres:
     image: postgres:16
     container_name: parking-postgres

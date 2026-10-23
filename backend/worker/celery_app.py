@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from celery import Celery
+from celery.schedules import crontab
 
 from backend.app.core.config import settings
 
@@ -30,5 +31,11 @@ celery_app.conf.update(
         "socket_connect_timeout": 2,
         "socket_timeout": 2,
         "retry_on_timeout": False,
+    },
+    beat_schedule={
+        "purge-old-data": {
+            "task": "maintenance.purge",
+            "schedule": crontab(hour=3, minute=0),
+        },
     },
 )

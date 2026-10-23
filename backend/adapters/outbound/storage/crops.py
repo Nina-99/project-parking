@@ -29,3 +29,18 @@ class CropFileStore:
         except OSError:
             return None  # a missing thumbnail must not lose the row
         return str(path)
+
+    def purge(self, older_than: datetime) -> int:
+        """Delete crops older than a cutoff; returns how many files went away."""
+        if not self._root.exists():
+            return 0
+        cutoff = older_than.timestamp()
+        deleted = 0
+        for path in self._root.rglob("*.jpg"):
+            try:
+                if path.is_file() and path.stat().st_mtime < cutoff:
+                    path.unlink()
+                    deleted += 1
+            except OSError:
+                continue
+        return deleted

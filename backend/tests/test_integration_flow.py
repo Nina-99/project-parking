@@ -147,3 +147,30 @@ def test_an_operator_closes_a_session_with_a_reason(db) -> None:
         assert parking.exit_time == later
         assert parking.close_reason == "left without a read"
         assert parking.closed_by == "ana"
+
+
+def test_purge_removes_old_telemetry_and_crops(db, tmp_path, monkeypatch) -> None:
+    import os
+
+    from backend.app.core.config import settings
+    from backend.worker.tasks.maintenance import purge_old_data
+
+    monkeypatch.setattr(settings, "ENTRY_IMAGE_DIR", str(tmp_path))
+    crop = tmp_path / "gate-1" / "crop.jpg"
+    crop.parent.mkdir(parents=True)
+
+    with _uow(db) as unit:
+        register_observation(
+            event=_event(), gate="entry", image_path=str(crop),
+            uow=unit, publisher=FakePublisher(), clock=_Clock(NOW),
+        )
+    crop.write_bytes(b"jpeg")
+    os.utime(crop, (0, 0))
+
+    result = purge_old_data(retention_days=1)
+
+    assert result == {"deleted_events": 1, "deleted_crops": 1}
+    assert not crop.exists()
+    with db() as session:
+        assert session.scalar(select(func.count(DetectionEvent.id))) == 0
+        assert session.scalar(select(func.count(Vehicle.id))) == 1

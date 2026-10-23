@@ -74,3 +74,5 @@ alembic/versions/*.pyc
 # Simulation harness leftovers (mediamtx writes its self-signed certs to its cwd)
 auto.crt
 auto.key
+
+celerybeat-schedule*

@@ -15,9 +15,11 @@ import secrets
 from datetime import UTC, datetime, timedelta
 
 import jwt
-from fastapi import APIRouter, Cookie, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response, status
 from pydantic import BaseModel
 
+from backend.adapters.outbound.cache.rate_limit import RedisRateLimiter
+from backend.app.api.dependencies import get_rate_limiter
 from backend.app.core.config import settings
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -72,7 +74,24 @@ def require_operator(
     return verify_token(session)
 
 
-@router.post("/login", response_model=OperatorResponse)
+async def login_rate_limit(
+    request: Request,
+    limiter: RedisRateLimiter = Depends(get_rate_limiter),
+) -> None:
+    client_ip = request.client.host if request.client else "unknown"
+    if not await limiter.allow(f"rate:login:{client_ip}"):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="too many login attempts",
+            headers={"Retry-After": str(settings.LOGIN_RATE_WINDOW_SECONDS)},
+        )
+
+
+@router.post(
+    "/login",
+    response_model=OperatorResponse,
+    dependencies=[Depends(login_rate_limit)],
+)
 def login(body: LoginRequest, response: Response) -> OperatorResponse:
     # Compare both values without short-circuiting: a timing difference would
     # tell an attacker whether the username exists.

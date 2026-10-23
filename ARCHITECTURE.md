@@ -82,6 +82,9 @@ infla la ocupación y todos los estadísticos derivados.
 | El cierre manual es el camino operativo | Mientras el OCR no tenga exact match medido, una suposición vaciaría el lote en silencio |
 | El OCR vive detrás de un puerto con dos adapters | PaddleOCR es el baseline operativo; el CRNN es el modelo de la tesis. `OCR_ENABLED=false` hasta medirlos sobre el mismo test |
 | La telemetría se escribe con el vehículo | `/stats/model` describe la inferencia que produjo las filas reales, no un benchmark aparte |
+| La API no arranca con el secreto de demo fuera de `DEBUG` | Un default cómodo no puede llegar a un despliegue real |
+| El rate limit del login falla abierto | Un Redis caído no debe dejar al operador afuera del sistema que monitorea |
+| La telemetría y los crops expiran a los 90 días | El disco no crece sin límite; el vehículo y la sesión se conservan |
 
 ## Mapa mínimo
 

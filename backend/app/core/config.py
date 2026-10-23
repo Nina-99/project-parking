@@ -5,9 +5,9 @@ Todas las variables de entorno se cargan acá.
 """
 from __future__ import annotations
 
-from typing import Annotated, Literal
+from typing import Annotated, Literal, Self
 
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
@@ -33,6 +33,8 @@ class Settings(BaseSettings):
     AUTH_TOKEN_TTL_SECONDS: int = 8 * 3600
     OPERATOR_USER: str = "operator"
     OPERATOR_PASSWORD: str = "operator"
+    LOGIN_RATE_LIMIT: int = 10  # attempts per window, per client IP
+    LOGIN_RATE_WINDOW_SECONDS: int = 300
 
     # CORS
     CORS_ORIGINS: list[str] = [
@@ -79,6 +81,9 @@ class Settings(BaseSettings):
     # A camera that has not sent a heartbeat in this window is shown as offline.
     CAMERA_OFFLINE_AFTER_SECONDS: float = 20.0
 
+    # Rows older than this are purged by the maintenance task; crops follow.
+    RETENTION_DAYS: int = 90
+
     # RTSP — default cameras (overridable via .env)
     # NoDecode: the value is a comma-separated list, not JSON. Without it
     # pydantic-settings tries to json.loads() the raw string first and fails.
@@ -98,6 +103,22 @@ class Settings(BaseSettings):
         if isinstance(value, str):
             return [item.strip() for item in value.split(",") if item.strip()]
         return value
+
+    @model_validator(mode="after")
+    def _require_a_real_secret_outside_debug(self) -> Self:
+        """A demo default must not survive into a non-debug deployment."""
+        if self.DEBUG:
+            return self
+        if self.SECRET_KEY in {
+            "dev-secret-change-me",
+            "change-me-to-a-random-secret-key",
+        }:
+            raise ValueError("SECRET_KEY must be set when DEBUG=false")
+        if len(self.SECRET_KEY) < 32:
+            raise ValueError("SECRET_KEY must be at least 32 characters")
+        if self.OPERATOR_PASSWORD == "operator":
+            raise ValueError("OPERATOR_PASSWORD must be changed when DEBUG=false")
+        return self
 
     # OCR. Off until a reader is measured on the frozen test set: an unread
     # plate must not close the wrong session.

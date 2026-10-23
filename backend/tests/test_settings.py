@@ -7,6 +7,9 @@ also feeds docker-compose, whose keys are not application settings.
 
 from __future__ import annotations
 
+import pytest
+from pydantic import ValidationError
+
 from backend.app.core.config import Settings, settings
 
 
@@ -26,3 +29,32 @@ def test_an_empty_camera_list_means_no_cameras() -> None:
 
 def test_a_proper_list_is_left_alone() -> None:
     assert Settings(RTSP_CAMERAS=["rtsp://a/1"]).RTSP_CAMERAS == ["rtsp://a/1"]
+
+
+def test_production_refuses_the_demo_secret() -> None:
+    with pytest.raises(ValidationError):
+        Settings(DEBUG=False, SECRET_KEY="dev-secret-change-me",
+                 OPERATOR_PASSWORD="s3cret")
+
+
+def test_production_refuses_the_env_placeholder_secret() -> None:
+    with pytest.raises(ValidationError):
+        Settings(DEBUG=False, SECRET_KEY="change-me-to-a-random-secret-key",
+                 OPERATOR_PASSWORD="s3cret")
+
+
+def test_production_refuses_a_short_secret() -> None:
+    with pytest.raises(ValidationError):
+        Settings(DEBUG=False, SECRET_KEY="short", OPERATOR_PASSWORD="s3cret")
+
+
+def test_production_refuses_the_default_operator_password() -> None:
+    with pytest.raises(ValidationError):
+        Settings(DEBUG=False, SECRET_KEY="x" * 32, OPERATOR_PASSWORD="operator")
+
+
+def test_production_accepts_a_long_secret() -> None:
+    configured = Settings(DEBUG=False, SECRET_KEY="x" * 32,
+                          OPERATOR_PASSWORD="s3cret")
+
+    assert configured.DEBUG is False

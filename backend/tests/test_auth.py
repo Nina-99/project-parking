@@ -4,15 +4,24 @@ from __future__ import annotations
 import pytest
 from httpx import ASGITransport, AsyncClient
 
+from backend.app.api.dependencies import get_rate_limiter
 from backend.app.core.config import settings
 from backend.app.main import app
 
 
+class _AllowAll:
+    async def allow(self, _key: str) -> bool:
+        return True
+
+
 @pytest.fixture(autouse=True)
-def credentials(monkeypatch: pytest.MonkeyPatch) -> None:
+def credentials(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(settings, "OPERATOR_USER", "tester")
     monkeypatch.setattr(settings, "OPERATOR_PASSWORD", "s3cret")
     monkeypatch.setattr(settings, "SECRET_KEY", "test-secret-with-at-least-32-bytes!!")
+    app.dependency_overrides[get_rate_limiter] = lambda: _AllowAll()
+    yield
+    app.dependency_overrides.clear()
 
 
 @pytest.fixture
@@ -85,3 +94,16 @@ async def test_a_tampered_token_is_rejected(client: AsyncClient) -> None:
 
     client.cookies.set(settings.AUTH_COOKIE_NAME, "not-a-token")
     assert (await client.get("/api/v1/auth/me")).status_code == 401
+
+
+async def test_the_login_is_rate_limited(client: AsyncClient) -> None:
+    class _Deny:
+        async def allow(self, _key: str) -> bool:
+            return False
+
+    app.dependency_overrides[get_rate_limiter] = lambda: _Deny()
+
+    response = await login(client)
+
+    assert response.status_code == 429
+    assert response.headers["retry-after"] == str(settings.LOGIN_RATE_WINDOW_SECONDS)
