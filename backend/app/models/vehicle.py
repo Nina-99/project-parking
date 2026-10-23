@@ -3,12 +3,16 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import DateTime, Float, String, Text, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from backend.app.core.database import Base
+
+if TYPE_CHECKING:
+    from backend.app.models.parking_session import ParkingSession
 
 
 class Vehicle(Base):
@@ -44,7 +48,7 @@ class Vehicle(Base):
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(),
     )
 
-    sessions: Mapped[list["ParkingSession"]] = relationship(
+    sessions: Mapped[list[ParkingSession]] = relationship(
         back_populates="vehicle", cascade="all, delete-orphan",
     )
 

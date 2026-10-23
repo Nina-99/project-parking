@@ -4,6 +4,7 @@ from __future__ import annotations
 import enum
 import uuid
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import DateTime, Enum, ForeignKey, String, func
 from sqlalchemy.dialects.postgresql import UUID
@@ -11,8 +12,11 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from backend.app.core.database import Base
 
+if TYPE_CHECKING:
+    from backend.app.models.vehicle import Vehicle
 
-class SessionStatus(str, enum.Enum):
+
+class SessionStatus(enum.StrEnum):
     ACTIVE = "active"
     COMPLETED = "completed"
     CANCELLED = "cancelled"
@@ -48,7 +52,7 @@ class ParkingSession(Base):
 
     exit_image_path: Mapped[str | None] = mapped_column(nullable=True)
 
-    vehicle: Mapped["Vehicle"] = relationship(back_populates="sessions")
+    vehicle: Mapped[Vehicle] = relationship(back_populates="sessions")
 
     def __repr__(self) -> str:
         return f"<ParkingSession {self.id} [{self.status.value}]>"
