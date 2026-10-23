@@ -32,14 +32,8 @@ class Vehicle(Base):
     vehicle_type_confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
     color: Mapped[str | None] = mapped_column(String(30), nullable=True)
     color_confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
-    brand: Mapped[str | None] = mapped_column(String(50), nullable=True)
-    brand_confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
 
     entry_image_path: Mapped[str | None] = mapped_column(Text, nullable=True)
-    entry_video_url: Mapped[str | None] = mapped_column(Text, nullable=True)
-
-    # Serialized numpy array, kept for a future ReID model.
-    feature_vector: Mapped[bytes | None] = mapped_column(nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(),

@@ -50,8 +50,6 @@ class ParkingSession(Base):
         index=True,
     )
 
-    exit_image_path: Mapped[str | None] = mapped_column(nullable=True)
-
     # Why and by whom the session was closed. Null on a plate match: a machine
     # closed it and there is no operator to name.
     close_reason: Mapped[str | None] = mapped_column(String(50), nullable=True)

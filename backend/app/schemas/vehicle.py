@@ -12,7 +12,6 @@ class VehicleCreate(BaseModel):
     license_plate: str | None = None
     vehicle_type: str | None = None
     color: str | None = None
-    brand: str | None = None
 
 
 class VehicleResponse(BaseModel):
@@ -22,7 +21,6 @@ class VehicleResponse(BaseModel):
     license_plate: str | None
     vehicle_type: str | None
     color: str | None
-    brand: str | None
     created_at: datetime
 
 

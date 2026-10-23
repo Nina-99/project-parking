@@ -38,8 +38,6 @@ class DetectionEvent(Base):
     inference_latency_ms: Mapped[float | None] = mapped_column(Float, nullable=True)
     model_version: Mapped[str | None] = mapped_column(String(20), nullable=True)
 
-    feature_vector: Mapped[bytes | None] = mapped_column(nullable=True)
-
     track_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     def __repr__(self) -> str:
