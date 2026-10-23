@@ -1,44 +1,10 @@
-"""Schemas for entry, exit and session responses."""
+"""Pydantic schemas for the read side: sessions and active vehicles."""
 from __future__ import annotations
 
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field
-
-
-class EntryRequest(BaseModel):
-    """Body of a POST to the entry gate."""
-    gate_id: str = Field(..., description="Gate identifier (e.g. 'gate-1')")
-    image: str = Field(..., description="Base64-encoded JPEG image of the vehicle")
-    timestamp: datetime | None = None
-
-
-class EntryResponse(BaseModel):
-    session_id: uuid.UUID
-    vehicle_id: uuid.UUID | None
-    license_plate: str | None
-    vehicle_type: str | None
-    color: str | None
-    status: str = "registered"
-
-
-class ExitRequest(BaseModel):
-    """Body of a POST to the exit gate."""
-    gate_id: str
-    image: str  # Base64 JPEG
-    session_id: uuid.UUID | None = None  # If we know the session
-    timestamp: datetime | None = None
-
-
-class ExitResponse(BaseModel):
-    session_id: uuid.UUID
-    vehicle_id: uuid.UUID | None
-    license_plate: str | None
-    entry_time: datetime
-    exit_time: datetime | None
-    duration_minutes: float | None
-    status: str
+from pydantic import BaseModel, ConfigDict
 
 
 class SessionResponse(BaseModel):
