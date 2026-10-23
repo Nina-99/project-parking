@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.app.core.colours import (
+from backend.domain.colours import (
     MIN_REPORT_CONFIDENCE,
     REPORTABLE_COLORS,
     colour_counts,

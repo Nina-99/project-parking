@@ -6,7 +6,7 @@ rule is pinned here rather than left to the endpoint.
 
 from __future__ import annotations
 
-from backend.app.core.colours import (
+from backend.domain.colours import (
     MINORITY_BUCKET,
     REPORTABLE_COLORS,
     colour_counts,

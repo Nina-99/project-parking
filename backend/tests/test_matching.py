@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 
-from backend.app.core.matching import (
+from backend.domain.matching import (
     MIN_PLATE_CONFIDENCE,
     ExitVehicle,
     OpenSession,

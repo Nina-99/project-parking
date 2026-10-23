@@ -22,8 +22,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.core.database import get_session
-from backend.app.core.colours import expand_color
-from backend.app.core.incident import rank_hits
+from backend.domain.colours import expand_color
+from backend.domain.incident import rank_hits
 from backend.app.models.vehicle import Vehicle
 from backend.app.schemas.vehicle import VehicleSearchHit
 

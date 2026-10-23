@@ -25,7 +25,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from backend.app.core.config import settings
-from backend.app.core.matching import ExitVehicle, OpenSession, find_match
+from backend.domain.matching import ExitVehicle, OpenSession, find_match
 from backend.app.models.parking_session import ParkingSession, SessionStatus
 from backend.app.models.vehicle import Vehicle
 from backend.worker.db import sync_session

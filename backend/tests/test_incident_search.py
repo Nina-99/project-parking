@@ -10,8 +10,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
-from backend.app.core.colours import expand_color
-from backend.app.core.incident import rank_hits
+from backend.domain.colours import expand_color
+from backend.domain.incident import rank_hits
 
 
 def test_exact_colour_comes_first_and_neighbours_after() -> None:
