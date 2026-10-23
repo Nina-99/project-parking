@@ -45,7 +45,13 @@ class ParkingSession(Base):
     duration_seconds: Mapped[int | None] = mapped_column(nullable=True)
 
     status: Mapped[SessionStatus] = mapped_column(
-        Enum(SessionStatus, name="session_status"),
+        Enum(
+            SessionStatus,
+            name="session_status",
+            # Persist the value ("active"), not the member name ("ACTIVE").
+            # Without this every insert fails against the migrated schema.
+            values_callable=lambda members: [member.value for member in members],
+        ),
         default=SessionStatus.ACTIVE,
         index=True,
     )
