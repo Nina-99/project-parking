@@ -25,7 +25,8 @@ services:
     volumes:
       - .:/app
     command: >
-      sh -c "uv run uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 --reload"
+      sh -c "uv run alembic -c backend/alembic.ini upgrade head &&
+             uv run uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 --reload"
 
   worker:
     build:

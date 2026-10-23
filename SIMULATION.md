@@ -90,16 +90,26 @@ uv run python rtsp-capture/capture.py \
 
 ## 5. Verificar
 
+La API de lectura ya no es pública: primero hay que abrir sesión. El token viaja
+en una cookie httpOnly.
+
 ```bash
+curl -c /tmp/parking.cookies -X POST http://127.0.0.1:8001/api/v1/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"username":"operator","password":"operator"}'
+
 docker exec parking-sim-pg psql -U parking -d parking -c \
   "select vehicle_type, color, count(*) from vehicles group by 1,2 order by 3 desc;"
 
-curl "http://127.0.0.1:8001/api/v1/vehicles/search?from=2026-10-21T00:00:00Z&to=2026-10-22T23:59:00Z&color=plata"
-curl "http://127.0.0.1:8001/api/v1/stats/colors?days=1"
+curl -b /tmp/parking.cookies \
+  "http://127.0.0.1:8001/api/v1/vehicles/search?from=2026-10-21T00:00:00Z&to=2026-10-22T23:59:00Z&color=plata"
+curl -b /tmp/parking.cookies "http://127.0.0.1:8001/api/v1/stats/colors?days=1"
 ```
 
-Resultado de la primera corrida real: **26 vehículos** persistidos con tipos y
-colores plausibles, y la búsqueda de `plata` devolvió primero los 3 aciertos
+Resultado de la primera corrida real, **antes** del agregado por tracks: **26
+vehículos** persistidos con tipos y colores plausibles. Ese conteo incluía un
+vehículo por frame, así que hay que re-medirlo con la cadena actual antes de
+citarlo en la tesis. La búsqueda de `plata` devolvió primero los 3 aciertos
 exactos y después los vecinos `blanco` y `gris` — que es exactamente lo que la
 expansión por matriz de confusión tenía que hacer.
 
