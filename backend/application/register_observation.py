@@ -1,13 +1,14 @@
 """The single write path: one confirmed gate event becomes one vehicle.
 
-Both the HTTP upload and the Celery worker end up here, so there is one answer
-to "what happens when a vehicle is seen". An entry opens a session; an exit
-closes one only when an identifier proves it, and is otherwise recorded as
-unmatched. Publishing happens after the commit: an event that reaches the
-dashboard must describe a row that exists.
+The Celery worker ends up here, so there is one answer to "what happens when a
+vehicle is seen". An entry opens a session; an exit closes one only when an
+identifier proves it, and is otherwise recorded as unmatched. The inference row
+is written in the same transaction: telemetry that can outlive its vehicle is
+worse than no telemetry. Publishing happens after the commit.
 """
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 
 from backend.domain.events import GateEvent
@@ -16,6 +17,8 @@ from backend.domain.ports import Clock, EventPublisher, UnitOfWork
 from backend.domain.vehicle import Plate
 
 GATES = ("entry", "exit")
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -36,12 +39,17 @@ def register_observation(
     publisher: EventPublisher,
     clock: Clock,
     plate: Plate | None = None,
+    model_name: str | None = None,
+    latency_ms: float | None = None,
 ) -> ObservationOutcome:
     """Persist one gate event and announce it.
 
     ``plate`` is the OCR result when there is one. Without it an exit cannot be
     matched, and the session stays open: a wrong match would empty the lot
     silently, an unmatched exit is visible.
+
+    ``latency_ms`` is the inference time for this frame, measured by the worker.
+    It is optional because a test or a replay may not have a model at all.
     """
     if gate not in GATES:
         raise ValueError(f"gate must be one of {GATES}, got {gate!r}")
@@ -69,6 +77,17 @@ def register_observation(
             )
             matched_session_id = match.session_id
 
+    uow.detections.record(
+        session_id=session_id or matched_session_id,
+        camera_id=event.camera_id,
+        observed_at=event.observed_at,
+        detection_confidence=event.detection_confidence,
+        box=event.box,
+        crop_image_path=image_path,
+        model_name=model_name or "unknown",
+        inference_latency_ms=latency_ms,
+        track_id=event.track_id,
+    )
     uow.commit()
 
     if gate == "entry":
@@ -87,6 +106,17 @@ def register_observation(
         "color": event.attributes.color,
         "timestamp": clock.now().isoformat(),
     })
+
+    logger.info(
+        "gate_event type=%s camera=%s track=%s vehicle=%s session=%s plate=%s latency_ms=%s",
+        event_type,
+        event.camera_id,
+        event.track_id,
+        vehicle_id,
+        session_id or matched_session_id,
+        bool(plate),
+        None if latency_ms is None else round(latency_ms, 1),
+    )
 
     return ObservationOutcome(
         vehicle_id=vehicle_id,

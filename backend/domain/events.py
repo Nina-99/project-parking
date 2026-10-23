@@ -45,6 +45,7 @@ class GateDetection:
 
     box: Box
     attributes: VehicleAttributes
+    detection_confidence: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -61,6 +62,7 @@ class GateEvent:
     box: Box
     observed_at: datetime
     attributes: VehicleAttributes
+    detection_confidence: float = 0.0
 
 
 def _area(box: Box) -> int:
@@ -80,6 +82,7 @@ class _Track:
     best_box: Box | None = None
     best_attributes: VehicleAttributes | None = None
     best_area: int = 0
+    best_detection_confidence: float = 0.0
 
 
 class TrackAggregator:
@@ -139,6 +142,7 @@ class TrackAggregator:
                     best_box=detection.box,
                     best_attributes=detection.attributes,
                     best_area=_area(detection.box),
+                    best_detection_confidence=detection.detection_confidence,
                 )
                 self._next_id += 1
                 alive.append(track)
@@ -151,6 +155,7 @@ class TrackAggregator:
                     track.best_box = detection.box
                     track.best_attributes = detection.attributes
                     track.best_area = _area(detection.box)
+                    track.best_detection_confidence = detection.detection_confidence
             matched.add(track.track_id)
 
         self._tracks[camera_id] = alive
@@ -190,6 +195,7 @@ class TrackAggregator:
                     box=track.best_box or track.box,
                     observed_at=now,
                     attributes=track.best_attributes or track.attributes,
+                    detection_confidence=track.best_detection_confidence,
                 )
             )
         return events

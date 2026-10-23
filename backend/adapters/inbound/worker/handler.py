@@ -6,6 +6,7 @@ nothing about RTSP, JPEG or the broker.
 """
 from __future__ import annotations
 
+import time
 from dataclasses import asdict
 from datetime import datetime
 
@@ -32,7 +33,9 @@ def handle_frame(
     """
     observed_at = as_utc(captured_at) if captured_at is not None else dependencies.clock.now()
 
+    started = time.perf_counter()
     detections = dependencies.analyzer.process(frame)
+    latency_ms = (time.perf_counter() - started) * 1000.0
     events = dependencies.aggregator_for(camera_id).update(
         camera_id,
         [
@@ -44,6 +47,7 @@ def handle_frame(
                     color=detection.color,
                     color_confidence=detection.color_confidence,
                 ),
+                detection_confidence=detection.detection_confidence,
             )
             for detection in detections
         ],
@@ -66,6 +70,8 @@ def handle_frame(
                 uow=uow,
                 publisher=dependencies.publisher,
                 clock=dependencies.clock,
+                model_name=dependencies.model_name,
+                latency_ms=latency_ms,
             )
         outcomes.append(asdict(outcome))
 

@@ -81,6 +81,7 @@ infla la ocupación y todos los estadísticos derivados.
 | El worker corre con `--concurrency=1` | El estado de tracking es por proceso; escalar exige moverlo a un store compartido |
 | El cierre manual es el camino operativo | Mientras el OCR no tenga exact match medido, una suposición vaciaría el lote en silencio |
 | El OCR vive detrás de un puerto con dos adapters | PaddleOCR es el baseline operativo; el CRNN es el modelo de la tesis. `OCR_ENABLED=false` hasta medirlos sobre el mismo test |
+| La telemetría se escribe con el vehículo | `/stats/model` describe la inferencia que produjo las filas reales, no un benchmark aparte |
 
 ## Mapa mínimo
 

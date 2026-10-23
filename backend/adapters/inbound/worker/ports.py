@@ -19,6 +19,7 @@ class DetectionLike(Protocol):
     """The attributes the handler reads from a model detection."""
 
     box: Box
+    detection_confidence: float
     vehicle_type: str | None
     vehicle_type_confidence: float | None
     color: str | None

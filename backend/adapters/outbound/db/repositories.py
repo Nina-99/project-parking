@@ -11,9 +11,11 @@ from datetime import datetime
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from backend.app.models.detection_event import DetectionEvent
 from backend.app.models.parking_session import ParkingSession, SessionStatus
 from backend.app.models.vehicle import Vehicle
 from backend.domain.errors import SessionNotActiveError, SessionNotFoundError
+from backend.domain.events import Box
 from backend.domain.matching import OpenSession, normalize_plate
 from backend.domain.vehicle import Plate, VehicleAttributes
 
@@ -100,3 +102,37 @@ class SqlAlchemySessionStore:
         row.closed_by = operator
         self._session.flush()
         return duration
+
+
+class SqlAlchemyDetectionStore:
+    """Append-only telemetry row for a confirmed event."""
+
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def record(
+        self,
+        *,
+        session_id: str | None,
+        camera_id: str,
+        observed_at: datetime,
+        detection_confidence: float,
+        box: Box,
+        crop_image_path: str | None,
+        model_name: str,
+        inference_latency_ms: float | None,
+        track_id: int,
+    ) -> None:
+        x1, y1, x2, y2 = box
+        self._session.add(DetectionEvent(
+            session_id=uuid.UUID(session_id) if session_id else None,
+            camera_id=camera_id,
+            frame_timestamp=observed_at,
+            model_name=model_name[:20],
+            object_class="vehicle",
+            confidence=detection_confidence,
+            bbox={"x1": x1, "y1": y1, "x2": x2, "y2": y2},
+            crop_image_path=crop_image_path,
+            inference_latency_ms=inference_latency_ms,
+            track_id=track_id,
+        ))

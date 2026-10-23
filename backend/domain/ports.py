@@ -13,6 +13,7 @@ from typing import Protocol
 import numpy as np
 from numpy.typing import NDArray
 
+from backend.domain.events import Box
 from backend.domain.matching import OpenSession
 from backend.domain.vehicle import Plate, VehicleAttributes
 
@@ -59,6 +60,24 @@ class EventPublisher(Protocol):
     def publish(self, payload: Mapping[str, object]) -> bool: ...
 
 
+class DetectionStore(Protocol):
+    """One row per confirmed event, for model health and latency."""
+
+    def record(
+        self,
+        *,
+        session_id: str | None,
+        camera_id: str,
+        observed_at: datetime,
+        detection_confidence: float,
+        box: Box,
+        crop_image_path: str | None,
+        model_name: str,
+        inference_latency_ms: float | None,
+        track_id: int,
+    ) -> None: ...
+
+
 class Clock(Protocol):
     def now(self) -> datetime: ...
 
@@ -68,5 +87,6 @@ class UnitOfWork(Protocol):
 
     vehicles: VehicleStore
     sessions: SessionStore
+    detections: DetectionStore
 
     def commit(self) -> None: ...

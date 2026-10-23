@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.core.config import settings
 from backend.app.core.database import get_session
+from backend.app.models.detection_event import DetectionEvent
 from backend.app.models.parking_session import ParkingSession, SessionStatus
 from backend.app.models.vehicle import Vehicle
 from backend.app.schemas.parking import ActiveSessionResponse, SessionResponse
@@ -26,7 +27,7 @@ router = APIRouter()
 @router.get("/active", response_model=list[ActiveSessionResponse])
 async def get_active_sessions(
     db_session: AsyncSession = Depends(get_session),
-):
+) -> list[ActiveSessionResponse]:
     """List all vehicles currently in the parking lot."""
     result = await db_session.execute(
         select(ParkingSession, Vehicle)
@@ -56,7 +57,7 @@ async def get_history(
     limit: int = Query(50, ge=1, le=500),
     offset: int = Query(0, ge=0),
     db_session: AsyncSession = Depends(get_session),
-):
+) -> list[SessionResponse]:
     """List completed parking sessions (paginated)."""
     result = await db_session.execute(
         select(ParkingSession, Vehicle)
@@ -90,7 +91,7 @@ async def get_history(
 @router.get("/occupancy")
 async def get_occupancy(
     db_session: AsyncSession = Depends(get_session),
-):
+) -> dict[str, object]:
     """Current occupancy count."""
     result = await db_session.execute(
         select(func.count(ParkingSession.id)).where(
@@ -105,7 +106,7 @@ async def get_occupancy(
 async def get_daily_stats(
     days: int = Query(7, ge=1, le=90),
     db_session: AsyncSession = Depends(get_session),
-):
+) -> list[dict[str, object]]:
     """Aggregated stats for the last N days."""
     since = datetime.now() - timedelta(days=days)
     result = await db_session.execute(
@@ -129,6 +130,48 @@ async def get_daily_stats(
     ]
 
 
+@router.get("/model")
+async def get_model_stats(
+    days: int = Query(7, ge=1, le=90),
+    db_session: AsyncSession = Depends(get_session),
+) -> dict[str, object]:
+    """Latency and confidence of the detector, per model version.
+
+    Telemetry is written one row per confirmed event, so these numbers describe
+    the inference that actually produced the vehicles in the database, not a
+    benchmark run.
+    """
+    since = datetime.now(UTC) - timedelta(days=days)
+    latency = DetectionEvent.inference_latency_ms
+    result = await db_session.execute(
+        select(
+            DetectionEvent.model_name,
+            func.count(DetectionEvent.id),
+            func.avg(DetectionEvent.confidence),
+            func.percentile_cont(0.5).within_group(latency),
+            func.percentile_cont(0.95).within_group(latency),
+        )
+        .where(DetectionEvent.frame_timestamp >= since)
+        .group_by(DetectionEvent.model_name),
+    )
+    rows = result.all()
+
+    return {
+        "window_days": days,
+        "models": [
+            {
+                "model_name": name,
+                "events": count,
+                "avg_confidence": round(float(avg), 3) if avg is not None else None,
+                "p50_latency_ms": round(float(p50), 1) if p50 is not None else None,
+                "p95_latency_ms": round(float(p95), 1) if p95 is not None else None,
+            }
+            for name, count, avg, p50, p95 in rows
+        ],
+        "total_events": sum(row[1] for row in rows),
+    }
+
+
 @router.get("/colors")
 async def get_colour_distribution(
     days: int = Query(30, ge=1, le=365),
@@ -137,7 +180,7 @@ async def get_colour_distribution(
         description="Below this colour confidence the label is treated as unknown.",
     ),
     db_session: AsyncSession = Depends(get_session),
-):
+) -> dict[str, object]:
     """Colour distribution, split by vehicle type.
 
     Only the six colours with enough labelled support are reported individually;

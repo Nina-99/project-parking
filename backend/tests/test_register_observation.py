@@ -27,6 +27,7 @@ def event(camera_id: str = "gate-1") -> GateEvent:
         box=(0, 0, 100, 100),
         observed_at=NOW,
         attributes=ATTRS,
+        detection_confidence=0.91,
     )
 
 
@@ -123,3 +124,22 @@ def test_a_gate_that_is_neither_entry_nor_exit_is_rejected() -> None:
         assert "gate must be one of" in str(error)
     else:
         raise AssertionError("an unknown gate must not be persisted")
+
+
+def test_the_event_keeps_its_inference_metadata() -> None:
+    uow = FakeUnitOfWork()
+
+    register_observation(
+        event=event(), gate="entry", image_path="/tmp/crop.jpg",
+        uow=uow, publisher=FakePublisher(), clock=FixedClock(),
+        model_name="yolo26x", latency_ms=42.5,
+    )
+
+    record = uow.detections.records[0]
+    assert record["session_id"] == "session-1"
+    assert record["camera_id"] == "gate-1"
+    assert record["detection_confidence"] == 0.91
+    assert record["model_name"] == "yolo26x"
+    assert record["inference_latency_ms"] == 42.5
+    assert record["track_id"] == 7
+    assert record["crop_image_path"] == "/tmp/crop.jpg"

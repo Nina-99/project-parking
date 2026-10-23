@@ -9,6 +9,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from contextlib import AbstractContextManager
 from dataclasses import dataclass
+from pathlib import Path
 from typing import cast
 
 from backend.adapters.inbound.worker.ports import CropStore, VehicleAnalyzer
@@ -33,6 +34,7 @@ class WorkerDependencies:
     crop_store: CropStore
     aggregator_for: Callable[[str], TrackAggregator]
     plate_reader: PlateReader | None = None
+    model_name: str = "unknown"
 
 
 def build_worker_dependencies() -> WorkerDependencies:
@@ -51,4 +53,5 @@ def build_worker_dependencies() -> WorkerDependencies:
         crop_store=CropFileStore(settings.ENTRY_IMAGE_DIR),
         aggregator_for=aggregator_for,
         plate_reader=build_plate_reader(),
+        model_name=Path(settings.YOLO_MODEL_PATH).stem,
     )

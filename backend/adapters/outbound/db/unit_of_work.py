@@ -12,10 +12,11 @@ from types import TracebackType
 from sqlalchemy.orm import Session
 
 from backend.adapters.outbound.db.repositories import (
+    SqlAlchemyDetectionStore,
     SqlAlchemySessionStore,
     SqlAlchemyVehicleStore,
 )
-from backend.domain.ports import SessionStore, VehicleStore
+from backend.domain.ports import DetectionStore, SessionStore, VehicleStore
 
 
 class SqlAlchemyUnitOfWork:
@@ -29,6 +30,7 @@ class SqlAlchemyUnitOfWork:
         # invariant in a Protocol, so the concrete type would not satisfy it.
         self.vehicles: VehicleStore = SqlAlchemyVehicleStore(self._session)
         self.sessions: SessionStore = SqlAlchemySessionStore(self._session)
+        self.detections: DetectionStore = SqlAlchemyDetectionStore(self._session)
         return self
 
     def commit(self) -> None:

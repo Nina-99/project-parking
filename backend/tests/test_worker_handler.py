@@ -25,6 +25,7 @@ BASE = datetime(2026, 5, 4, 10, 0, tzinfo=UTC)
 @dataclass(frozen=True)
 class FakeDetection:
     box: Box = (0, 0, 100, 100)
+    detection_confidence: float = 0.91
     vehicle_type: str | None = "car"
     vehicle_type_confidence: float | None = 0.9
     color: str | None = "plata"
@@ -76,6 +77,7 @@ def build(
             camera_id, TrackAggregator(),
         ),
         plate_reader=plate_reader,
+        model_name="yolo26x",
     )
     return dependencies, crops
 
@@ -200,3 +202,16 @@ def test_without_a_reader_no_plate_is_recorded() -> None:
     feed(dependencies, frames=3)
 
     assert uow.vehicles.added[0][1] is None
+
+
+def test_the_handler_records_the_inference_that_produced_the_event() -> None:
+    uow = FakeUnitOfWork()
+    dependencies, _ = build(uow)
+
+    feed(dependencies, frames=3)
+
+    record = uow.detections.records[0]
+    assert record["model_name"] == "yolo26x"
+    assert record["inference_latency_ms"] is not None
+    assert record["inference_latency_ms"] >= 0
+    assert record["detection_confidence"] == 0.91

@@ -63,10 +63,19 @@ class FakeSessions:
         return self.duration_seconds
 
 
+class FakeDetections:
+    def __init__(self) -> None:
+        self.records: list[dict] = []
+
+    def record(self, **fields: object) -> None:
+        self.records.append(fields)
+
+
 class FakeUnitOfWork:
     def __init__(self, active: list[OpenSession] | None = None) -> None:
         self.vehicles = FakeVehicles()
         self.sessions = FakeSessions(active)
+        self.detections = FakeDetections()
         self.commits = 0
         self.log: list[str] = []
 
