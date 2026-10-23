@@ -35,11 +35,13 @@ class TestTextgen:
         three = sum(1 for t in texts if len(t) == 6)
         assert 50 <= three <= 150
 
-    def test_no_ambiguous_glyphs(self) -> None:
+    def test_only_o_is_excluded(self) -> None:
         rng = random.Random(2)
-        for _ in range(500):
-            text = sample_text(rng)
-            assert "I" not in text and "O" not in text
+        texts = [sample_text(rng) for _ in range(500)]
+        # O never appears on real well-formed plates, so it is never generated.
+        assert all("O" not in t for t in texts)
+        # I is common on the street (~16% of real plates), so it must be sampled.
+        assert any("I" in t for t in texts)
 
     def test_dept_covers_all_nine_with_o_majority(self) -> None:
         rng = random.Random(3)
@@ -51,26 +53,28 @@ class TestTextgen:
 
 class TestRenderer:
     def test_master_size_and_channels(self) -> None:
-        master = render_clean("4852PHD", "O")
+        master, _ = render_clean("4852PHD", "O")
         assert master.shape == (MASTER_H, MASTER_W, 3)
 
     def test_dept_changes_pixels(self) -> None:
-        a = render_clean("4852PHD", "O")
-        b = render_clean("4852PHD", "L")
+        a, _ = render_clean("4852PHD", "O")
+        b, _ = render_clean("4852PHD", "L")
         assert (a != b).any()
 
 
 class TestDegrade:
     def test_output_matches_target_size(self) -> None:
         rng = random.Random(4)
-        crop, params = degrade(render_clean("4852PHD", "O"), rng, 96, 39)
+        master, _ = render_clean("4852PHD", "O")
+        crop, params = degrade(master, rng, 96, 39)
         assert crop.shape[1] == 96 and crop.shape[0] == 39
         assert params["target_hw"] == [39, 96]
 
     def test_deterministic_under_seed(self) -> None:
         def run() -> bytes:
             rng = random.Random(11)
-            crop, _ = degrade(render_clean("4852PHD", "O"), rng, 80, 30)
+            master, _ = render_clean("4852PHD", "O")
+            crop, _ = degrade(master, rng, 80, 30)
             _, buf = cv2.imencode(".png", crop)
             return buf.tobytes()
 

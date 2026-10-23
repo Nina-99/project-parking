@@ -16,9 +16,12 @@ import string
 # character's distribution in training.
 DEPT_LETTERS: tuple[str, ...] = ("B", "C", "H", "L", "N", "O", "P", "S", "T")
 
-# Stand-in alphabet. No I/O: at 40-130 px wide they are indistinguishable from
-# 1/0 on the recorder, so generating them only teaches the OCR to guess.
-TEXT_LETTERS: str = "".join(c for c in string.ascii_uppercase if c not in "IO")
+# Stand-in alphabet. No O: in a well-formed plate it never appears on the real
+# site (0/491 labelled plates; the only hits were malformed 4-letter noise), so
+# generating it only teaches the OCR to guess. ``I`` stays in: it shows up in
+# ~16% of the real plates (79/496), so excluding it would leave the class with
+# zero positive samples and the model could never emit it on the street.
+TEXT_LETTERS: str = "".join(c for c in string.ascii_uppercase if c != "O")
 
 FOUR_DIGIT_WEIGHT: float = 0.90
 
