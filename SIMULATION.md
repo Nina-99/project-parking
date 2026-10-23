@@ -45,15 +45,9 @@ docker run -d --name parking-sim-pg \
     -e POSTGRES_DB=parking -e POSTGRES_USER=parking -e POSTGRES_PASSWORD=parking \
     -p 5433:5432 postgres:16
 
-# tablas (el worker no las crea; el lifespan de la API sí)
+# esquema (Alembic; ni la API ni el worker lo crean al arrancar)
 DATABASE_URL=postgresql+asyncpg://parking:parking@localhost:5433/parking \
-uv run python -c "
-import asyncio, backend.app.models
-from backend.app.core.database import Base, engine
-async def main():
-    async with engine.begin() as c: await c.run_sync(Base.metadata.create_all)
-    await engine.dispose()
-asyncio.run(main())"
+uv run alembic -c backend/alembic.ini upgrade head
 ```
 
 ## 2. Worker y API en el host
