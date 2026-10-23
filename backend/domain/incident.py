@@ -8,8 +8,9 @@ moment to the remembered instant.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import UTC, datetime
-from typing import Protocol
+from typing import Any, Protocol
 
 
 def _as_utc(value: datetime) -> datetime:
@@ -18,11 +19,20 @@ def _as_utc(value: datetime) -> datetime:
 
 
 class _Hit(Protocol):
+    id: Any
+    license_plate: str | None
+    vehicle_type: str | None
     color: str | None
+    color_confidence: float | None
+    entry_image_path: str | None
     created_at: datetime
 
 
-def rank_hits(rows: list[_Hit], requested_color: str | None, at: datetime | None) -> list[_Hit]:
+def rank_hits[HitT: _Hit](
+    rows: Sequence[HitT],
+    requested_color: str | None,
+    at: datetime | None,
+) -> list[HitT]:
     """Exact colour first, then the closest moment to ``at``, then recency."""
     reference = _as_utc(at) if at is not None else None
 

@@ -9,7 +9,7 @@ from __future__ import annotations
 import uuid
 from collections.abc import Callable
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
@@ -19,7 +19,6 @@ from backend.adapters.outbound.time import SystemClock
 from backend.app.api.auth import require_operator
 from backend.app.api.dependencies import get_clock, get_publisher, get_uow_factory
 from backend.application.close_session import CloseOutcome, close_session
-from backend.domain.errors import SessionNotActiveError, SessionNotFoundError
 
 router = APIRouter()
 
@@ -59,18 +58,7 @@ async def close(
                 clock=clock,
             )
 
-    try:
-        outcome = await run_in_threadpool(run)
-    except SessionNotFoundError:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="session not found",
-        ) from None
-    except SessionNotActiveError:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="session is not active",
-        ) from None
+    outcome = await run_in_threadpool(run)
 
     return CloseResponse(
         session_id=uuid.UUID(outcome.session_id),

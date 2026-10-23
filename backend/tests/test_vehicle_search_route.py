@@ -29,6 +29,9 @@ class _Result:
     def all(self):
         return self._rows
 
+    def scalar(self):
+        return len(self._rows)
+
 
 class _Recorder:
     def __init__(self, rows):
@@ -119,3 +122,22 @@ async def test_an_inverted_window_is_rejected(client: AsyncClient) -> None:
     )
 
     assert response.status_code == 422
+
+
+async def test_the_total_and_the_offset_reach_the_response(
+    client: AsyncClient, recorder: _Recorder,
+) -> None:
+    recorder.rows = [_vehicle("plata", 0, "A")]
+
+    response = await client.get(
+        "/api/v1/vehicles/search",
+        params={
+            "from": "2026-05-04T09:00:00Z",
+            "to": "2026-05-04T11:00:00Z",
+            "limit": 5,
+            "offset": 10,
+        },
+    )
+
+    assert response.headers["x-total-count"] == "1"
+    assert "OFFSET" in str(recorder.statements[-1]).upper()

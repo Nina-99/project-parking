@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -55,11 +55,22 @@ async def get_active_sessions(
 
 @router.get("/history", response_model=list[SessionResponse])
 async def get_history(
+    response: Response,
     limit: int = Query(50, ge=1, le=500),
     offset: int = Query(0, ge=0),
     db_session: AsyncSession = Depends(get_session),
 ) -> list[SessionResponse]:
-    """List completed parking sessions (paginated)."""
+    """List completed parking sessions (paginated).
+
+    The total before pagination travels in ``X-Total-Count``; the body stays a
+    list so existing clients keep working.
+    """
+    total = (await db_session.execute(
+        select(func.count(ParkingSession.id))
+        .where(ParkingSession.status == SessionStatus.COMPLETED),
+    )).scalar() or 0
+    response.headers["X-Total-Count"] = str(total)
+
     result = await db_session.execute(
         select(ParkingSession, Vehicle)
         .join(Vehicle, ParkingSession.vehicle_id == Vehicle.id)

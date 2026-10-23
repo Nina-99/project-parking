@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from backend.adapters.inbound.http.realtime import relay_events
 from backend.app.api.auth import require_operator
 from backend.app.api.auth import router as auth_router
+from backend.app.api.errors import install_error_handlers
 from backend.app.api.health import router as health_router
 from backend.app.api.routes import router as api_router
 from backend.app.core.config import settings
@@ -45,7 +46,10 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["X-Total-Count"],
 )
+
+install_error_handlers(app)
 
 app.include_router(health_router)
 app.include_router(auth_router, prefix="/api/v1")

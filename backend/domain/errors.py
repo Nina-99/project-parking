@@ -12,3 +12,7 @@ class SessionNotFoundError(Exception):
 
 class SessionNotActiveError(Exception):
     """The session was already closed; closing it again would rewrite history."""
+
+
+class VehicleNotFoundError(Exception):
+    """No vehicle with that id exists."""

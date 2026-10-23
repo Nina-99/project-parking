@@ -42,3 +42,27 @@ class VehicleSearchHit(BaseModel):
     image_url: str | None
     created_at: datetime
     match: Literal["exact", "neighbour"]
+
+
+class VehicleSession(BaseModel):
+    id: uuid.UUID
+    entry_gate: str | None
+    exit_gate: str | None
+    entry_time: datetime
+    exit_time: datetime | None
+    duration_seconds: int | None
+    status: str
+    close_reason: str | None = None
+    closed_by: str | None = None
+
+
+class VehicleDetail(BaseModel):
+    id: uuid.UUID
+    license_plate: str | None
+    vehicle_type: str | None
+    vehicle_type_confidence: float | None
+    color: str | None
+    color_confidence: float | None
+    image_url: str | None
+    created_at: datetime
+    sessions: list[VehicleSession]
