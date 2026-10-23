@@ -93,7 +93,6 @@ dataset/
 | `plate_dataset/synth_plates/` | Synthetic plates (renderer, degradations, pipeline) + ablation split and OCR metrics. |
 | `plate_dataset/plate_ocr.py` | PaddleOCR wrapper and plate filter. |
 | `plate_dataset/writer.py` | Dataset folders, labels and manifest. |
-| `extract_dataset.py.orig` | Previous single-rectangle prototype, for reference. |
 
 ## Checklist
 

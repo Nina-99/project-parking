@@ -1,12 +1,7 @@
 """CLI entry point for the plate-dataset extractor.
 
-Implementation lives in the ``plate_dataset`` package:
-
-    python tools/extract_dataset.py --input /mnt/PARKING/ver/ \
-        --output /mnt/Smart_Parking/dataset/ --camera channel16
-
-The previous single-rectangle prototype is kept at
-``tools/extract_dataset.py.orig`` for reference.
+Implementation lives in the ``plate_dataset`` package; this only forwards the
+arguments.
 """
 
 from __future__ import annotations

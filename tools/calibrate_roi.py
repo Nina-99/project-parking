@@ -1,8 +1,7 @@
 import json
-import os
-import cv2
-import numpy as np
 from pathlib import Path
+
+import cv2
 from ultralytics import YOLO
 
 INPUT_VIDEOS_DIR = Path("/mnt/PARKING/ver/")
@@ -31,22 +30,13 @@ def main():
         return
 
     first_video = video_files[0]
-    print(f"\n==================================================")
-    print(f"INTERACTIVE VISUAL CALIBRATOR WITH MULTIMEDIA CONTROLS")
     print(f"Video: {first_video.name}")
-    print(f"--------------------------------------------------")
-    print(f"Playback Controls:")
-    print(f"  [SPACE]   : Pause / Resume video")
-    print(f"  [D] / [A] : Skip forward / backward 5 seconds")
-    print(f"  [W] / [S] : Increase / Decrease speed (1x, 2x, 4x)")
-    print(f"  [R]       : Restart video from the beginning")
-    print(f"  [ENTER]       : SAVED ROI configuration to json")
-    print(f"  [Q] / ESC : Exit")
-    print(f"==================================================\n")
+    print("SPACE pausa, A/D ±5 s, W/S velocidad (1x/2x/4x), "
+          "R reinicia, ENTER guarda el ROI, Q sale")
 
     cap = cv2.VideoCapture(str(first_video))
     if not cap.isOpened():
-        print(f"[ERROR] The video could not be opened.")
+        print(f"[ERROR] no se pudo abrir el video: {first_video}")
         return
 
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
