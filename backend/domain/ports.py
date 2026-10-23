@@ -10,8 +10,24 @@ from collections.abc import Mapping
 from datetime import datetime
 from typing import Protocol
 
+import numpy as np
+from numpy.typing import NDArray
+
 from backend.domain.matching import OpenSession
 from backend.domain.vehicle import Plate, VehicleAttributes
+
+Frame = NDArray[np.uint8]
+
+
+class PlateReader(Protocol):
+    """Read a plate from a vehicle crop, or say it could not.
+
+    The crop is a vehicle, not a plate: locating the plate is the adapter's job.
+    A reader that is not sure returns None; a guess would close the wrong
+    session later.
+    """
+
+    def read(self, vehicle_crop: Frame) -> Plate | None: ...
 
 
 class VehicleStore(Protocol):

@@ -5,7 +5,7 @@ Todas las variables de entorno se cargan acá.
 """
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
@@ -93,8 +93,16 @@ class Settings(BaseSettings):
             return [item.strip() for item in value.split(",") if item.strip()]
         return value
 
-    # OCR
-    OCR_LANG: str = "en"  # PaddleOCR language
+    # OCR. Off until a reader is measured on the frozen test set: an unread
+    # plate must not close the wrong session.
+    OCR_ENABLED: bool = False
+    OCR_READER: Literal["paddle", "crnn"] = "paddle"
+    OCR_MIN_CONFIDENCE: float = 0.60
+    OCR_CRNN_CHECKPOINT: str = (
+        "/mnt/nina/SmartParking/runs/ocr_real_only_v2/crnn_stage2_real.pt"
+    )
+    OCR_USE_GPU: bool = False
+    OCR_LANG: str = "latin"  # PaddleOCR language
 
 
 settings = Settings()

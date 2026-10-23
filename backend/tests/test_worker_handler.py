@@ -9,7 +9,13 @@ import numpy as np
 from backend.adapters.inbound.worker.dependencies import WorkerDependencies
 from backend.adapters.inbound.worker.handler import handle_frame
 from backend.domain.events import Box, TrackAggregator
-from backend.tests.fakes import FakePublisher, FakeUnitOfWork, FixedClock
+from backend.domain.vehicle import Plate
+from backend.tests.fakes import (
+    FakePublisher,
+    FakeUnitOfWork,
+    FixedClock,
+    open_session,
+)
 from backend.worker.tasks.detection import parse_captured_at
 
 FRAME = np.zeros((120, 120, 3), dtype=np.uint8)
@@ -42,10 +48,21 @@ class FakeCrops:
         return "/tmp/crop.jpg"
 
 
+class FakePlateReader:
+    def __init__(self, plate: Plate | None) -> None:
+        self.plate = plate
+        self.reads = 0
+
+    def read(self, _crop: np.ndarray) -> Plate | None:
+        self.reads += 1
+        return self.plate
+
+
 def build(
     uow: FakeUnitOfWork,
     detections: list[FakeDetection] | None = None,
     clock: FixedClock | None = None,
+    plate_reader: FakePlateReader | None = None,
 ) -> tuple[WorkerDependencies, FakeCrops]:
     crops = FakeCrops()
     aggregators: dict[str, TrackAggregator] = {}
@@ -58,6 +75,7 @@ def build(
         aggregator_for=lambda camera_id: aggregators.setdefault(
             camera_id, TrackAggregator(),
         ),
+        plate_reader=plate_reader,
     )
     return dependencies, crops
 
@@ -151,3 +169,34 @@ def test_parse_captured_at_accepts_iso_and_rejects_garbage() -> None:
     assert parse_captured_at("2026-05-04T10:00:00+00:00") == BASE
     assert parse_captured_at(None) is None
     assert parse_captured_at("not-a-date") is None
+
+
+def test_a_read_plate_is_persisted_on_entry() -> None:
+    uow = FakeUnitOfWork()
+    plate = Plate(text="1234ABC", confidence=0.93)
+    dependencies, _ = build(uow, plate_reader=FakePlateReader(plate))
+
+    feed(dependencies, frames=3)
+
+    assert uow.vehicles.added[0][1] == plate
+
+
+def test_a_read_plate_closes_the_session_on_exit() -> None:
+    uow = FakeUnitOfWork(active=[open_session(plate="1234ABC")])
+    reader = FakePlateReader(Plate(text="1234ABC", confidence=0.93))
+    dependencies, _ = build(uow, plate_reader=reader)
+
+    feed(dependencies, frames=3, gate="exit")
+
+    assert reader.reads == 1
+    assert uow.sessions.closed[0]["reason"] == "plate_match"
+    assert uow.sessions.closed[0]["operator"] is None
+
+
+def test_without_a_reader_no_plate_is_recorded() -> None:
+    uow = FakeUnitOfWork()
+    dependencies, _ = build(uow)
+
+    feed(dependencies, frames=3)
+
+    assert uow.vehicles.added[0][1] is None

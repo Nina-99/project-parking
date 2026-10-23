@@ -9,12 +9,10 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Protocol
 
-import numpy as np
-from numpy.typing import NDArray
-
 from backend.domain.events import Box
+from backend.domain.ports import Frame
 
-Frame = NDArray[np.uint8]
+__all__ = ["CropStore", "DetectionLike", "Frame", "VehicleAnalyzer"]
 
 
 class DetectionLike(Protocol):

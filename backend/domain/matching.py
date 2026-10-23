@@ -31,6 +31,7 @@ from datetime import datetime
 MIN_PLATE_CONFIDENCE = 0.6
 
 _NON_ALNUM = re.compile(r"[^A-Z0-9]")
+_PLATE_TEXT = re.compile(r"^[A-Z0-9]{4,9}$")
 
 
 def normalize_plate(text: str | None) -> str:
@@ -42,6 +43,16 @@ def normalize_plate(text: str | None) -> str:
     if not text:
         return ""
     return _NON_ALNUM.sub("", text.upper())
+
+
+def looks_like_plate(text: str | None) -> bool:
+    """A short alphanumeric string that mixes digits and letters.
+
+    Brand lettering like "TOYOTA" is all letters and must not become a plate.
+    This is a domain rule: both OCR adapters and the matching policy use it.
+    """
+    cleaned = normalize_plate(text)
+    return bool(_PLATE_TEXT.match(cleaned)) and any(ch.isdigit() for ch in cleaned)
 
 
 @dataclass(frozen=True)

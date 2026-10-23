@@ -16,11 +16,12 @@ from backend.adapters.inbound.worker.tracking import aggregator_for
 from backend.adapters.outbound.bus.redis_publisher import RedisEventPublisher
 from backend.adapters.outbound.db.session import get_session_factory
 from backend.adapters.outbound.db.unit_of_work import SqlAlchemyUnitOfWork
+from backend.adapters.outbound.ml.plate_reader import build_plate_reader
 from backend.adapters.outbound.storage.crops import CropFileStore
 from backend.adapters.outbound.time import SystemClock
 from backend.app.core.config import settings
 from backend.domain.events import TrackAggregator
-from backend.domain.ports import Clock, EventPublisher, UnitOfWork
+from backend.domain.ports import Clock, EventPublisher, PlateReader, UnitOfWork
 
 
 @dataclass(frozen=True)
@@ -31,6 +32,7 @@ class WorkerDependencies:
     publisher: EventPublisher
     crop_store: CropStore
     aggregator_for: Callable[[str], TrackAggregator]
+    plate_reader: PlateReader | None = None
 
 
 def build_worker_dependencies() -> WorkerDependencies:
@@ -48,4 +50,5 @@ def build_worker_dependencies() -> WorkerDependencies:
         ),
         crop_store=CropFileStore(settings.ENTRY_IMAGE_DIR),
         aggregator_for=aggregator_for,
+        plate_reader=build_plate_reader(),
     )

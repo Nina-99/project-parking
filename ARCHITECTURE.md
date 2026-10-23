@@ -79,6 +79,8 @@ infla la ocupación y todos los estadísticos derivados.
 | Las rutas de archivos no salen del servidor | El cliente pide `/api/v1/vehicles/{id}/image`; el filesystem no se filtra |
 | La API de lectura exige sesión | Expone patentes, que son datos personales |
 | El worker corre con `--concurrency=1` | El estado de tracking es por proceso; escalar exige moverlo a un store compartido |
+| El cierre manual es el camino operativo | Mientras el OCR no tenga exact match medido, una suposición vaciaría el lote en silencio |
+| El OCR vive detrás de un puerto con dos adapters | PaddleOCR es el baseline operativo; el CRNN es el modelo de la tesis. `OCR_ENABLED=false` hasta medirlos sobre el mismo test |
 
 ## Mapa mínimo
 
@@ -87,6 +89,8 @@ infla la ocupación y todos los estadísticos derivados.
 | `backend/domain/events.py` | Agrupa frames en tracks y emite un evento por vehículo |
 | `backend/domain/matching.py` | Cierra una sesión solo con una patente exacta y confiable |
 | `backend/application/register_observation.py` | Único camino de escritura: vehículo, sesión, publicación |
+| `backend/application/close_session.py` | Cierre manual auditado, cuando el modelo no puede probar la salida |
+| `backend/adapters/outbound/ml/plate_reader.py` | Elige PaddleOCR o el CRNN según configuración |
 | `backend/adapters/outbound/db/unit_of_work.py` | Una transacción por caso de uso |
 | `backend/adapters/inbound/http/realtime.py` | Fan-out de Redis a los navegadores |
 | `frontend/src/application/queries.ts` | Toda lectura del UI pasa por el puerto `ApiPort` |
@@ -103,11 +107,16 @@ uv run alembic -c backend/alembic.ini upgrade head --sql   # migración sin DB
 
 ## Deuda conocida
 
-- El OCR todavía no está cableado al camino de salida. El caso de uso ya acepta
-  `Plate`; falta extraerlo del frame y pasarlo.
+- El OCR está cableado pero apagado (`OCR_ENABLED=false`). Los dos lectores
+  comparten el puerto; falta medirlos sobre el mismo test de patentes reales y
+  elegir default con evidencia. El checkpoint CRNN disponible tiene 0 % de exact
+  match, así que hoy no podría cerrar sesiones ni con el flag encendido.
+- PaddleOCR ya localiza y lee la patente dentro del crop del vehículo; el CRNN
+  necesita que otro detector le entregue el recorte de la patente.
 - Sin ReID: se midió que el backbone no separa identidades (19,9 % de pares
-  distintos por encima de 0,95), así que un exit sin patente queda sin match.
+  distintos por encima de 0,95), así que un exit sin patente queda sin match y se
+  cierra a mano.
 - Los tests son unitarios. Falta una prueba de integración con Postgres real
-  para el ciclo entrada → evento → sesión → salida.
+  para el ciclo entrada → evento → sesión → salida/manual close.
 - El estado de tracking se pierde al reiniciar el worker. Es visible como una
-  sesión que queda abierta; la política de sesión huérfana todavía no existe.
+  sesión que queda abierta; la UI la muestra como huérfana pasadas 12 horas.

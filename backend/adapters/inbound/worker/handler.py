@@ -53,11 +53,16 @@ def handle_frame(
     outcomes = []
     for event in events:
         image_path = dependencies.crop_store.save(frame, event.box, camera_id)
+        plate = None
+        if dependencies.plate_reader is not None:
+            x1, y1, x2, y2 = event.box
+            plate = dependencies.plate_reader.read(frame[y1:y2, x1:x2])
         with dependencies.uow_factory() as uow:
             outcome = register_observation(
                 event=event,
                 gate=gate,
                 image_path=image_path,
+                plate=plate,
                 uow=uow,
                 publisher=dependencies.publisher,
                 clock=dependencies.clock,
