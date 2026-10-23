@@ -93,4 +93,7 @@ async def test_occupancy(client: AsyncClient) -> None:
     response = await client.get("/api/v1/stats/occupancy")
 
     assert response.status_code == 200
-    assert response.json()["active_sessions"] == 0
+    data = response.json()
+    assert data["active_sessions"] == 0
+    assert data["capacity"] == 0
+    assert data["percent"] is None

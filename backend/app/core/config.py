@@ -73,6 +73,12 @@ class Settings(BaseSettings):
     # It is a display policy, not a state transition: no job writes it.
     STALE_SESSION_HOURS: float = 12.0
 
+    # Total occupancy has a denominator, but no table: it is a site constant.
+    PARKING_CAPACITY: int = 0
+
+    # A camera that has not sent a heartbeat in this window is shown as offline.
+    CAMERA_OFFLINE_AFTER_SECONDS: float = 20.0
+
     # RTSP — default cameras (overridable via .env)
     # NoDecode: the value is a comma-separated list, not JSON. Without it
     # pydantic-settings tries to json.loads() the raw string first and fails.

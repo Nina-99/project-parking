@@ -13,8 +13,9 @@ from pathlib import Path
 
 import cv2
 import numpy as np
+from heartbeat import CameraHeartbeat, build_heartbeat
 
-# So `backend.*` resolves when the file is run as a script.
+# Add parent to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 # Force RTSP over TCP. OpenCV's FFmpeg backend negotiates UDP by default, and
@@ -82,6 +83,7 @@ class RTSPCapturer:
     """
 
     MOTION_SIZE = (160, 90)
+    HEARTBEAT_INTERVAL_SECONDS = 5.0
 
     def __init__(
         self,
@@ -90,12 +92,14 @@ class RTSPCapturer:
         sample_interval: float = 0.5,
         gate: str = "entry",
         motion_threshold: float = 8.0,
+        heartbeat: CameraHeartbeat | None = None,
     ) -> None:
         self.camera_id = camera_id
         self.rtsp_url = rtsp_url
         self.sample_interval = sample_interval
         self.gate = gate
         self.motion_threshold = motion_threshold
+        self.heartbeat = heartbeat
         self.reconnect = ReconnectPolicy()
         self._dispatch_thread: threading.Thread | None = None
         self.dropped_frames = 0
@@ -124,6 +128,9 @@ class RTSPCapturer:
 
         print(f"[{self.camera_id}] Connected. Sampling every {self.sample_interval}s")
 
+        last_heartbeat = 0.0
+        self._beat()
+
         while self._running:
             ret, frame = self._cap.read()
             if not ret:
@@ -144,11 +151,20 @@ class RTSPCapturer:
             frame_count += 1
             now = time.time()
 
+            if now - last_heartbeat >= self.HEARTBEAT_INTERVAL_SECONDS:
+                self._beat()
+                last_heartbeat = now
+
             if now - last_process_time >= self.sample_interval:
                 self._process_frame(frame)
                 last_process_time = now
 
         self._cleanup()
+
+    def _beat(self) -> None:
+        """Tell the API this camera is alive. A broker outage is not fatal."""
+        if self.heartbeat is not None:
+            self.heartbeat.beat(self.dropped_frames)
 
     def _has_motion(self, frame: cv2.typing.MatLike) -> bool:
         """True when the frame differs enough from the previous sample.
@@ -262,6 +278,7 @@ def main() -> None:
         sample_interval=args.interval,
         gate=args.gate,
         motion_threshold=args.motion_threshold,
+        heartbeat=build_heartbeat(args.camera_id, args.gate),
     )
 
     def _signal_handler(_sig, _frame) -> None:  # type: ignore[no-untyped-def]

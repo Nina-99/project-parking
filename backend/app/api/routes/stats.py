@@ -19,6 +19,7 @@ from backend.domain.colours import (
     colour_counts,
     report_bucket,
 )
+from backend.domain.occupancy import occupancy_percent
 from backend.domain.session import age_minutes, is_stale
 
 router = APIRouter()
@@ -99,7 +100,12 @@ async def get_occupancy(
         ),
     )
     active_count = result.scalar() or 0
-    return {"active_sessions": active_count, "timestamp": datetime.now()}
+    return {
+        "active_sessions": active_count,
+        "capacity": settings.PARKING_CAPACITY,
+        "percent": occupancy_percent(active_count, settings.PARKING_CAPACITY),
+        "timestamp": datetime.now(UTC),
+    }
 
 
 @router.get("/daily")

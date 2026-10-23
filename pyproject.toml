@@ -90,6 +90,10 @@ extend-immutable-calls = [
     "fastapi.Query",
 ]
 
+[tool.ruff.lint.per-file-ignores]
+# The directory name is part of the runbook command (`python rtsp-capture/...`).
+"rtsp-capture/__init__.py" = ["N999"]
+
 [tool.ruff.format]
 quote-style = "double"
 
