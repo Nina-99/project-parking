@@ -11,28 +11,32 @@ muestra (`d`): no la fuerces a una clase.
 
 ---
 
-## Las 7 clases
+## Las 5 clases
 
 | clase | qué es | pista decisiva |
 |---|---|---|
-| **motocicleta** | moto | dos ruedas |
+| **moto** | motocicleta | dos ruedas |
 | **automovil** | sedán | 3 volúmenes: capó + cabina + **baúl saliente**; techo bajo |
-| **vagoneta** | SUV / hatchback / rural / van ligera | techo alto que **llega hasta el portón trasero**; sin baúl saliente |
+| **vagoneta** | SUV / hatchback / rural / van (de carga o familiar) | techo alto que **llega hasta el portón trasero**; sin baúl saliente |
 | **camioneta** | pickup | **caja de carga abierta** atrás |
-| **furgon** | van de carga | van **sin ventanas** laterales traseras; cerrada |
 | **minibus** | van/minibús de pasajeros | van **con ventanas** y muchas plazas |
-| **otro** | bus, microbús grande, camión | vehículo **pesado/comercial** grande |
+
+> **Historia:** hasta 2026-10-23 existió una sexta clase, `furgon` (van de carga,
+> sin ventanas laterales traseras). Se fusionó con `vagoneta`: la ventana trasera
+> —su única pista distintiva— no se ve de noche, con el vehículo de cola o con el
+> portón tapado. El F1 de test de esa clase era **0,16** contra 0,66 de macro.
+> Una van de carga hoy se etiqueta **vagoneta**.
 
 ---
 
 ## Árbol de decisión (en este orden)
 
-1. ¿Dos ruedas? → **motocicleta**
+1. ¿Dos ruedas? → **moto**
 2. ¿Tiene **caja de carga abierta** atrás? → **camioneta** (aunque sea doble cabina)
-3. ¿Es un **camión o bus grande** (chasis pesado, muchas ruedas, gran volumen)? → **otro**
+3. ¿Es un **camión o bus grande** (chasis pesado, muchas ruedas, gran volumen)? → **descartar** (`d`)
 4. ¿Es una **van**?
-   * sin ventanas laterales traseras → **furgon**
    * con ventanas y muchas plazas → **minibus**
+   * cerrada o de uso particular → **vagoneta**
 5. ¿Es un **auto chico**?
    * tiene **baúl saliente** y techo bajo (3 volúmenes) → **automovil**
    * el techo **baja hasta el portón**, sin baúl (2 volúmenes / SUV) → **vagoneta**
@@ -42,7 +46,7 @@ que cumpla. Así todos resuelven la duda igual.
 
 ---
 
-## Las 3 confusiones reales (y cómo cortarlas)
+## Las 2 confusiones reales (y cómo cortarlas)
 
 ### 1. automovil ↔ vagoneta  ← la que más te está costando
 * **automovil**: hay una **"cola" con baúl"** que sobresale y el techo es más bajo en la parte trasera.
@@ -55,11 +59,6 @@ que cumpla. Así todos resuelven la duda igual.
 * **minibus**: van de **pasajeros** con fila de ventanas y muchas plazas (transporte).
 * Regla corta: **muchas ventanas + tamaño van + transporte → minibus.**
 
-### 3. furgon ↔ minibus
-* **furgon**: **sin ventanas** traseras (transporte de carga).
-* **minibus**: **con ventanas**.
-* Regla corta: **¿se ven ventanas atrás? minibus. ¿Pared ciega? furgon.**
-
 ---
 
 ## Reglas de oro
@@ -70,5 +69,5 @@ que cumpla. Así todos resuelven la duda igual.
 3. No infieras por el color ni por el modelo ("es un Toyota" no decide la clase).
 4. **Consistencia > criterio personal.** Ante la duda, seguí el árbol y el orden.
 5. Si no se distingue con seguridad → **descartar** (`d`), no adivinar.
-6. `otro` NO es "no sé". Es exclusivamente bus / microbús grande / camión.
-   Un vehículo que no sabés clasificar se descarta, no va a `otro`.
+6. Bus, microbús grande o camión **no se etiqueta**: se descarta (`d`). Nunca
+   fuerces una muestra a una clase que no le corresponde.

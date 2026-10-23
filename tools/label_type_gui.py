@@ -72,7 +72,7 @@ PANEL_W = 400
 PANEL_H = 800
 DEFAULT_FRAME_W = 1200
 VEHICLE_CLASSES = (2, 3, 5, 7)
-DEFAULT_TYPES = ("automovil", "camioneta", "furgon", "minibus", "moto", "vagoneta")
+DEFAULT_TYPES = ("automovil", "camioneta", "minibus", "moto", "vagoneta")
 DEFAULT_COLORS = ("blanco", "gris", "plata", "negro", "rojo", "azul", "verde",
                   "amarillo", "marron", "beige", "naranja", "otro")
 TYPE_KEYS = "123456"

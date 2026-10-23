@@ -5,7 +5,7 @@ the COCO detector at the gate.
 
 | Model | Answers | Used for |
 |-------|---------|----------|
-| **type** | automovil, camioneta, furgon, minibus, moto, vagoneta | fleet statistics, identifying a vehicle category in a search |
+| **type** | automovil, camioneta, minibus, moto, vagoneta | fleet statistics, identifying a vehicle category in a search |
 | **colour** | the *base paint* colour | fleet statistics, soft filter in incident search |
 
 Neither model replaces the plate. They describe a vehicle when the plate is
@@ -101,53 +101,55 @@ tiny classes that happen to be classified correctly; on the colour model it read
 | `gris+plata` reported as separate counts | the split is ±13% noisy, so publish both with that caveat, never as precise values | none |
 | No `otros` label | amarillo (H=87°), naranja (H=32°), marron (72°), beige (85°) sit 30-55° apart; one class would be multi-modal | relabel + retrain |
 
-## furgón: kept as a class, reported as insufficient
+## furgón: merged into vagoneta (2026-10-23)
 
-`furgon` stays in the label set. Furgones do enter the premises, in small numbers
-(97 of 4.055 labelled crops, 2.4%), and that count is itself part of what the
-statistics have to say. Dropping the class would lose the distinction.
+`furgon` existed as a class until 2026-10-23. It was removed and its crops were
+reassigned by hand. The vocabulary is now five classes.
 
-What the thesis may claim is narrower than for the other classes: **five classes
-are evaluated, `furgon` is trained but not evaluated** because its test support is
-11, below `MIN_TEST_SUPPORT = 40`. The full confusion matrix stays in the annex.
-
-Why it cannot be evaluated, measured rather than assumed:
+**Why the decision flipped.** The earlier note here kept the class on the argument
+that "the distinction is part of what the statistics have to say". Three
+measurements defeated that:
 
 | evidence | value |
 |---|---|
-| within-class coherence (similarity to own centroid) | 0.892 — lowest of all six (others 0.907–0.974) |
-| linear separability from the rest (5-fold AUC) | 0.867 — compare moto > 0.97 |
-| nearest foreign centroid, of 73 furgones | vagoneta 29, camioneta 22, automovil 16, minibus 5, moto 1 |
-| prevalence in the fleet | 2.4%, and reaching 40 test samples needs ~270 tracks |
+| test macro F1 of `furgon` (2026-10-18 checkpoint) | **0.16** — lowest by 3.5x (next: camioneta 0.57) |
+| test support | 17 crops, and 2 of them predicted correctly |
+| share of the dataset | 2.4%, and reaching `MIN_TEST_SUPPORT = 40` needs ~270 tracks |
+| **agreement with a human re-audit** | **49 of 98 crops were not furgones at all** |
 
-The coherence and neighbourhood figures were computed when the class held 73
-crops; it has since grown to 97. The direction has not changed -- furgón remains
-the least coherent class and its nearest neighbour remains vagoneta -- but the
-numbers above are the 73-crop measurement and should be re-run before being
-quoted as final.
+That last row is the decisive one. A class that a careful human re-labels
+correctly only half the time is not a labelling target, it is noise: 23 crops
+were pickups (`camioneta`), 20 were panel vans or SUVs (`vagoneta`), 6 were
+passenger vans (`minibus`) and 49 were buses, box trucks and pickups that never
+belonged in the bucket. No model can be more consistent than its labels.
 
-**How the class was grown matters, and the automated queue lost.** Reviewing the
-822 COCO-`truck` entry candidates on channel 6 yielded 3 furgones in 495 reviews
-(0.6%). A hand-curated folder of 40 crops from `entries_fast` yielded 34 (85%).
-Both are worth recording: the detector class was a poor proxy for this body type
-on that camera, and the human looking at candidate crops beat it by two orders of
-magnitude.
+The feature itself is unobservable at the gate: the presence of rear side windows
+is lost at night, when the vehicle enters rear-first, or when the tailgate
+occludes it.
 
-**Merging into `camioneta` was rejected on evidence.** The proposal assumed a
-furgón is a nearby variant of a pickup; the neighbourhood says otherwise — its
-most frequent neighbour is `vagoneta`, not `camioneta`. Merging would have created
-a class that matches no region of the feature space and polluted camioneta on the
-way.
+**Where the crops went** — human judgement, one pass over all 98, no model
+involvement:
 
-**What a furgón count means.** Predicted counts undercount, because a model with
-recall around 0.5 files half of them under another type. The correction factor
-cannot be estimated from 17 test samples, so a report should say "at least N
-detected", never "exactly N", and never derive a trend from it.
+| destination | n |
+|---|---|
+| camioneta | 23 |
+| vagoneta | 20 |
+| minibus | 6 |
+| discarded | 49 |
 
-**Cleanup pending:** five crops have `minibus` as their nearest foreign centroid
-and are worth a second look (sim 0.69–0.93). Relabel them through
-`label_type_gui.py --review` if the rear windows are there; do not let a model
-decide this.
+Note this partly contradicts the earlier "merging into camioneta was rejected"
+argument, which relied on nearest-centroid counts (vagoneta 29, camioneta 22):
+when a human looked at the actual bodies, pickups were in fact the largest
+group. Centroid neighbourhoods on a contaminated class are not evidence about
+the true class boundary.
+
+**What the thesis may claim now.** Five classes, all with test support above
+`MIN_TEST_SUPPORT`, so all five are evaluated. The macro F1 rises by
+construction (a 0.16 class left the average); do not present that as an
+improvement in detection quality, report the per-class table instead.
+
+`furgon` counts from any model trained before 2026-10-23 are not comparable with
+the current taxonomy.
 
 ## Serving
 
@@ -159,39 +161,28 @@ cannot separate them reliably; exact matches rank first.
 rest into `minority`. Both endpoints share `core/colours.py`, so the vocabulary
 cannot drift.
 
-## Queueing a class the model cannot learn yet
+## Queueing a class the model cannot learn yet — obsolete since 2026-10-23
 
-`furgon` sits below the learning floor at 59 labelled tracks. Do not rank
-candidates by the model's own prediction: it calls 2 of every 17 furgones
-"furgon", so the queue would surface the ones it already gets right. The queue
-uses the COCO detector class and the trajectory kind instead -- neither sees the
-body type.
+`queue_candidates.py` was built for `furgon`, its only registered target, and that
+class no longer exists. The tool still runs and its tests still pass, but there is
+no target to queue. Treat it as a record of a rejected approach, not a live path.
 
-```bash
-uv run python tools/queue_candidates.py \
-    --dataset /mnt/nina/SmartParking --target furgon --kinds entry --limit 400 \
-    --exclude-labelled "/mnt/nina/SmartParking/car type/labels.jsonl" \
-    --output "/mnt/nina/SmartParking/car type/queue_furgon.jsonl"
+The method finding survives and is worth keeping in the thesis: do not rank
+candidates for a rare class by the model's own prediction -- it calls 2 of every
+17 furgones "furgon", so the queue surfaces the ones it already gets right. Use an
+independent signal (COCO detector class, trajectory kind) instead.
 
-uv run python tools/label_type_gui.py \
-    --queue "/mnt/nina/SmartParking/car type/queue_furgon.jsonl" \
-    --dataset /mnt/nina/SmartParking --output "/mnt/nina/SmartParking/car type" --resume
-```
+**But measure the yield first.** Reviewing 495 of 822 `truck`-class candidates on
+channel 6 produced 3 furgones (0.6%). A hand-curated folder of 40 crops from
+`entries_fast` produced 34 (85%). The detector's `truck` class was a poor proxy
+for a van on channel 6, and a human looking at candidate crops beat it by two
+orders of magnitude. A geometric prior was also measured and rejected: furgon
+boxes are *less* tall than car boxes, because the gate sees the van from behind.
 
-On the current manifest: 836 truck entries, 822 after one crop per track, 812
-left to label. A geometric prior was measured and rejected -- furgon boxes are
-*less* tall than car boxes, because the gate sees the van from behind.
-
-**The measured yield says the automated queue was the wrong tool.** Reviewing 495
-of those 822 candidates produced 3 furgones (0.6%). A hand-curated folder of 40
-crops from `entries_fast` produced 34 (85%). The detector's `truck` class is a
-poor proxy for a van on channel 6, and a human looking at candidate crops beat it
-by two orders of magnitude.
-
-Keep that in mind before queueing the next rare class: an independent signal is
-better than the model's own prediction, but only if the signal actually tracks
-the class. Measure the yield on a sample of a hundred before committing hours to
-it.
+The general lesson, now with a second data point: when a class needs 40 test
+samples and has 17, the bottleneck is not the sampling tool, it is whether the
+class is recognisable at all. Run the 98-crop audit before building the queue —
+the audit is what killed the class, and it cost one afternoon.
 
 ## Producing the tables
 
