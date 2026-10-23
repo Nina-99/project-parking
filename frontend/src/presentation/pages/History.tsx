@@ -50,18 +50,19 @@ export function History() {
                 <th className="text-left py-3 px-4 font-medium text-gray-500">Salida</th>
                 <th className="text-left py-3 px-4 font-medium text-gray-500">Duración</th>
                 <th className="text-left py-3 px-4 font-medium text-gray-500">Estado</th>
+                <th className="text-left py-3 px-4 font-medium text-gray-500">Cierre</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {history.isLoading ? (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-gray-400">
+                  <td colSpan={8} className="py-12 text-center text-gray-400">
                     Cargando…
                   </td>
                 </tr>
               ) : history.isError ? (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-red-500">
+                  <td colSpan={8} className="py-12 text-center text-red-500">
                     No se pudo cargar el historial
                   </td>
                 </tr>
@@ -93,11 +94,18 @@ export function History() {
                         {session.status === "active" ? "Activo" : "Completado"}
                       </span>
                     </td>
+                    <td className="py-3 px-4 text-gray-600 text-xs">
+                      {session.closed_by
+                        ? `${session.closed_by}${session.close_reason ? `: ${session.close_reason}` : ""}`
+                        : session.close_reason === "plate_match"
+                          ? "Automático (patente)"
+                          : "—"}
+                    </td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-gray-400">
+                  <td colSpan={8} className="py-12 text-center text-gray-400">
                     {search ? "No se encontraron resultados" : "Sin registros de ingreso"}
                   </td>
                 </tr>

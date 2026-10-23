@@ -2,19 +2,28 @@
 import type { ApiPort } from "../application/ports";
 import type {
   ActiveSession,
+  CamerasResponse,
+  CloseSessionResult,
   DailyStat,
+  ModelStats,
   Occupancy,
   SessionHistory,
+  VehicleDetail,
   VehicleSearchHit,
   VehicleSearchQuery,
 } from "../domain/types";
 
 const BASE = "/api/v1";
 
-async function fetchJson<T>(path: string): Promise<T> {
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${BASE}${path}`, {
     credentials: "include",
-    headers: { Accept: "application/json" },
+    ...init,
+    headers: {
+      Accept: "application/json",
+      ...(init?.body ? { "Content-Type": "application/json" } : {}),
+      ...(init?.headers ?? {}),
+    },
   });
   if (!response.ok) {
     let detail = `${response.status} ${response.statusText}`;
@@ -28,7 +37,16 @@ async function fetchJson<T>(path: string): Promise<T> {
     }
     throw new Error(detail);
   }
+  if (response.status === 204) return undefined as T;
   return (await response.json()) as T;
+}
+
+function fetchJson<T>(path: string): Promise<T> {
+  return request<T>(path);
+}
+
+function postJson<T>(path: string, body: unknown): Promise<T> {
+  return request<T>(path, { method: "POST", body: JSON.stringify(body) });
 }
 
 export class HttpApi implements ApiPort {
@@ -54,5 +72,21 @@ export class HttpApi implements ApiPort {
     if (query.type) params.set("type", query.type);
     if (query.at) params.set("at", query.at);
     return fetchJson(`/vehicles/search?${params.toString()}`);
+  }
+
+  getVehicle(id: string): Promise<VehicleDetail> {
+    return fetchJson(`/vehicles/${id}`);
+  }
+
+  getCameras(): Promise<CamerasResponse> {
+    return fetchJson("/cameras");
+  }
+
+  getModelStats(days = 7): Promise<ModelStats> {
+    return fetchJson(`/stats/model?days=${days}`);
+  }
+
+  closeSession(id: string, reason: string): Promise<CloseSessionResult> {
+    return postJson(`/sessions/${id}/close`, { reason });
   }
 }

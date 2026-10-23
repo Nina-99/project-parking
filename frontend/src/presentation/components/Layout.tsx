@@ -1,5 +1,12 @@
 import { Outlet, NavLink } from "react-router-dom";
-import { Car, HistoryIcon, LayoutDashboard, LogOut, Search } from "lucide-react";
+import {
+  Activity,
+  Car,
+  HistoryIcon,
+  LayoutDashboard,
+  LogOut,
+  Search,
+} from "lucide-react";
 import { useLiveEvents } from "../../application/useLiveEvents";
 import { useSession } from "../../application/session";
 
@@ -7,6 +14,7 @@ const navItems = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
   { to: "/incidents", label: "Incidentes", icon: Search },
   { to: "/history", label: "Historial", icon: HistoryIcon },
+  { to: "/model", label: "Modelo", icon: Activity },
 ];
 
 export function Layout() {

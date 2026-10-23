@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Car, Clock, TrendingUp } from "lucide-react";
 import {
   Bar,
@@ -10,14 +11,23 @@ import {
 } from "recharts";
 import {
   useActiveSessions,
+  useCameras,
   useDailyStats,
   useOccupancy,
 } from "../../application/queries";
 import { formatTime } from "../../domain/incident";
 import type { ActiveSession } from "../../domain/types";
+import { CameraTile } from "../components/CameraTile";
+import { CloseSessionDialog } from "../components/CloseSessionDialog";
 import { StatCard } from "../components/StatCard";
 
-function ActiveRow({ session }: { session: ActiveSession }) {
+function ActiveRow({
+  session,
+  onClose,
+}: {
+  session: ActiveSession;
+  onClose: () => void;
+}) {
   return (
     <div className="flex items-center justify-between py-3 px-4 hover:bg-gray-50 rounded-lg transition-colors">
       <div className="flex items-center gap-3">
@@ -33,9 +43,19 @@ function ActiveRow({ session }: { session: ActiveSession }) {
           </p>
         </div>
       </div>
-      <div className="text-right">
-        <p className="text-xs text-gray-500">{formatTime(session.entry_time)}</p>
-        <p className="text-xs text-gray-400">{session.entry_gate || "N/A"}</p>
+      <div className="flex items-center gap-2 text-right">
+        {session.stale && <span className="badge-stale">Huérfana</span>}
+        <div>
+          <p className="text-xs text-gray-500">{formatTime(session.entry_time)}</p>
+          <p className="text-xs text-gray-400">{session.entry_gate || "N/A"}</p>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          className="ml-1 px-2 py-1 rounded-md text-xs font-medium text-gray-600 border border-gray-200 hover:bg-gray-100"
+        >
+          Cerrar
+        </button>
       </div>
     </div>
   );
@@ -45,6 +65,8 @@ export function Dashboard() {
   const occupancy = useOccupancy();
   const active = useActiveSessions();
   const daily = useDailyStats(7);
+  const cameras = useCameras();
+  const [closing, setClosing] = useState<ActiveSession | null>(null);
 
   const chartData = (daily.data ?? []).map((day) => ({
     date: new Date(day.date).toLocaleDateString("es-BO", {
@@ -55,6 +77,7 @@ export function Dashboard() {
   }));
 
   const lastDay = daily.data?.[daily.data.length - 1];
+  const capacity = occupancy.data?.capacity ?? 0;
 
   return (
     <div className="space-y-6">
@@ -72,7 +95,11 @@ export function Dashboard() {
           icon={Car}
           label="Vehículos en parqueadero"
           value={occupancy.data?.active_sessions ?? "—"}
-          sub="ocupados actualmente"
+          sub={
+            capacity > 0
+              ? `${occupancy.data?.percent ?? 0}% de ${capacity} lugares`
+              : "sin capacidad configurada"
+          }
         />
         <StatCard
           icon={TrendingUp}
@@ -92,6 +119,28 @@ export function Dashboard() {
         />
       </div>
 
+      <section className="space-y-3">
+        <h3 className="text-lg font-semibold text-gray-900">Cámaras</h3>
+        {cameras.isLoading ? (
+          <p className="text-sm text-gray-400">Consultando cámaras…</p>
+        ) : cameras.isError ? (
+          <p className="text-sm text-red-600">No se pudo consultar el estado de las cámaras</p>
+        ) : cameras.data?.redis_available === false ? (
+          <p className="text-sm text-amber-700">
+            Redis no responde: el estado de las cámaras no está disponible, pero la
+            ocupación sí.
+          </p>
+        ) : cameras.data && cameras.data.cameras.length > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {cameras.data.cameras.map((camera) => (
+              <CameraTile key={camera.camera_id} camera={camera} />
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-gray-400">Ninguna cámara reportó todavía.</p>
+        )}
+      </section>
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="card lg:col-span-1">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">
@@ -102,7 +151,11 @@ export function Dashboard() {
               <p className="text-sm text-gray-400 text-center py-8">Cargando…</p>
             ) : active.data && active.data.length > 0 ? (
               active.data.map((session) => (
-                <ActiveRow key={session.id} session={session} />
+                <ActiveRow
+                  key={session.id}
+                  session={session}
+                  onClose={() => setClosing(session)}
+                />
               ))
             ) : (
               <p className="text-sm text-gray-400 text-center py-8">
@@ -133,6 +186,13 @@ export function Dashboard() {
           )}
         </div>
       </div>
+
+      {closing && (
+        <CloseSessionDialog
+          session={closing}
+          onDismiss={() => setClosing(null)}
+        />
+      )}
     </div>
   );
 }

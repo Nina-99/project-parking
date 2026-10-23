@@ -1,9 +1,13 @@
 /** What the UI needs from the outside world. Adapters implement these. */
 import type {
   ActiveSession,
+  CamerasResponse,
+  CloseSessionResult,
   DailyStat,
+  ModelStats,
   Occupancy,
   SessionHistory,
+  VehicleDetail,
   VehicleSearchHit,
   VehicleSearchQuery,
   WsMessage,
@@ -15,6 +19,10 @@ export interface ApiPort {
   getOccupancy(): Promise<Occupancy>;
   getDailyStats(days?: number): Promise<DailyStat[]>;
   searchVehicles(query: VehicleSearchQuery): Promise<VehicleSearchHit[]>;
+  getVehicle(id: string): Promise<VehicleDetail>;
+  getCameras(): Promise<CamerasResponse>;
+  getModelStats(days?: number): Promise<ModelStats>;
+  closeSession(id: string, reason: string): Promise<CloseSessionResult>;
 }
 
 export type MessageHandler = (message: WsMessage) => void;

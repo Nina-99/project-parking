@@ -17,6 +17,8 @@ export function useLiveEvents(): void {
       void queryClient.invalidateQueries({ queryKey: ["daily-stats"] });
       void queryClient.invalidateQueries({ queryKey: ["history"] });
       void queryClient.invalidateQueries({ queryKey: ["vehicle-search"] });
+      void queryClient.invalidateQueries({ queryKey: ["vehicle"] });
+      void queryClient.invalidateQueries({ queryKey: ["model-stats"] });
     });
 
     return () => {

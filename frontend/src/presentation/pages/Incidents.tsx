@@ -1,4 +1,5 @@
 import { useMemo, useState, type FormEvent } from "react";
+import { Link } from "react-router-dom";
 import { Clock, ImageOff, Search } from "lucide-react";
 import { useVehicleSearch } from "../../application/queries";
 import {
@@ -219,7 +220,13 @@ export function Incidents() {
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {hits.map((hit) => (
-              <ResultCard key={hit.id} hit={hit} requestedColour={query.color} />
+              <Link
+                key={hit.id}
+                to={`/vehicles/${hit.id}`}
+                className="block rounded-xl transition-shadow hover:shadow-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+              >
+                <ResultCard hit={hit} requestedColour={query.color} />
+              </Link>
             ))}
           </div>
         </>
