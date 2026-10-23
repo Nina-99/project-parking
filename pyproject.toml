@@ -107,6 +107,9 @@ exclude = ["frontend/", "rtsp-capture/"]
 testpaths = ["backend/tests"]
 asyncio_mode = "auto"
 addopts = "--cov=backend/app --cov-report=term-missing"
+markers = [
+    "integration: needs a reachable PostgreSQL; skipped when there is none",
+]
 
 [tool.coverage.run]
 source = ["backend"]

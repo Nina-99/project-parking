@@ -104,6 +104,11 @@ uv run pytest -q                      # dominio, casos de uso, rutas y auth
 uv run ruff check backend
 cd frontend && npx tsc --noEmit && bun run build
 uv run alembic -c backend/alembic.ini upgrade head --sql   # migración sin DB
+
+# Integración: crea y borra <base>_test, aplica las migraciones reales.
+# Se salta sola si no hay PostgreSQL alcanzable.
+DATABASE_URL_SYNC=postgresql+psycopg://parking:parking@localhost:5432/parking \
+  uv run pytest -m integration
 ```
 
 ## Deuda conocida
