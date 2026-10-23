@@ -1,4 +1,4 @@
-"""Basic health check and API connectivity tests."""
+"""Health check and empty-database responses."""
 from __future__ import annotations
 
 from httpx import AsyncClient, ASGITransport

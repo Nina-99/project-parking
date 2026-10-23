@@ -1,4 +1,4 @@
-"""Alembic migrations environment."""
+"""Alembic migration environment."""
 from __future__ import annotations
 
 from logging.config import fileConfig
@@ -9,8 +9,7 @@ from sqlalchemy import engine_from_config, pool
 from backend.app.core.config import settings
 from backend.app.core.database import Base
 
-# Import all models so they register
-import backend.app.models  # noqa: F401
+import backend.app.models  # noqa: F401  (registers the metadata)
 
 config = context.config
 if config.config_file_name is not None:

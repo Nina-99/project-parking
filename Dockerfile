@@ -1,6 +1,3 @@
-# ============================================================
-# Stage 1: Builder — install Python deps via uv
-# ============================================================
 FROM python:3.12-slim AS builder
 
 ENV UV_SYSTEM_PYTHON=1 \
@@ -13,9 +10,6 @@ WORKDIR /app
 COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev --no-editable
 
-# ============================================================
-# Stage 2: Runtime
-# ============================================================
 FROM python:3.12-slim
 
 WORKDIR /app

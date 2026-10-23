@@ -1,6 +1,4 @@
-"""
-Async database engine and session factory via SQLAlchemy 2.0.
-"""
+"""Async engine and session factory."""
 from __future__ import annotations
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
@@ -23,12 +21,13 @@ async_session_factory = async_sessionmaker(
 
 
 class Base(DeclarativeBase):
-    """Base class for all SQLAlchemy ORM models."""
+    """Common base for the ORM models."""
+
     repr_cols: tuple[str, ...] = ("id",)
 
 
 async def get_session() -> AsyncSession:  # type: ignore[misc]
-    """FastAPI dependency — yields an async DB session."""
+    """FastAPI dependency: one session and one commit per request."""
     async with async_session_factory() as session:
         try:
             yield session

@@ -1,6 +1,3 @@
-/**
- * WebSocket service — real-time occupancy updates from the backend.
- */
 export type WsMessage =
   | { type: "ping"; timestamp: string }
   | { type: "vehicle_entry"; session_id: string; license_plate?: string }
@@ -35,7 +32,6 @@ export class OccupancyWebSocket {
     };
 
     this.ws.onclose = () => {
-      // Auto-reconnect after 3s
       this.reconnectTimer = setTimeout(() => this.connect(), 3000);
     };
 

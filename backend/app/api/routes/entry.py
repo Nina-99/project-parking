@@ -1,8 +1,4 @@
-"""
-Entry gate endpoint.
-
-Receives vehicle image → dispatches Celery task → returns session info.
-"""
+"""Entry gate endpoint: open a session and hand the image to the worker."""
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, File, UploadFile
@@ -22,23 +18,13 @@ async def register_entry(
     image: UploadFile = File(...),
     session: AsyncSession = Depends(get_session),
 ):
-    """
-    Register a vehicle entry.
-
-    - Receives the image from the gate camera
-    - Creates a pending ParkingSession
-    - Dispatches a Celery task for YOLO inference + OCR
-    - Returns the session ID immediately
-    """
-    # Read image bytes
+    """Open a session for this gate and return it before inference finishes."""
     image_bytes = await image.read()
 
-    # Create vehicle placeholder
     vehicle = Vehicle()
     session.add(vehicle)
     await session.flush()
 
-    # Create parking session
     parking_session = ParkingSession(
         vehicle_id=vehicle.id,
         entry_gate=gate_id,
@@ -65,5 +51,5 @@ async def register_entry_with_base64(
     image: UploadFile = File(...),
     session: AsyncSession = Depends(get_session),
 ):
-    """Alternative entry endpoint — receives raw image upload."""
+    """Same as the main endpoint, kept for clients that post a raw upload."""
     return await register_entry(gate_id, image, session)

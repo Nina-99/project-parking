@@ -3,7 +3,6 @@ volumes:
   redis_data:
 
 services:
-  # ── FastAPI ──────────────────────────────────────────
   api:
     build:
       context: .
@@ -28,7 +27,6 @@ services:
     command: >
       sh -c "uv run uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 --reload"
 
-  # ── Celery Worker (GPU-enabled for YOLO inference) ──
   worker:
     build:
       context: .
@@ -58,7 +56,6 @@ services:
     command: >
       sh -c "uv run celery -A backend.worker.celery_app worker --loglevel=info --concurrency=1"
 
-  # ── PostgreSQL ──────────────────────────────────────
   postgres:
     image: postgres:16
     container_name: parking-postgres
@@ -78,7 +75,6 @@ services:
       timeout: 5s
       retries: 5
 
-  # ── Redis ───────────────────────────────────────────
   redis:
     image: redis:7
     container_name: parking-redis
@@ -87,7 +83,6 @@ services:
     volumes:
       - redis_data:/data
 
-  # ── Frontend (React + Vite) ────────────────────────
   frontend:
     build:
       context: ./frontend

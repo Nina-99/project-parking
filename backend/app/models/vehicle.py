@@ -1,6 +1,4 @@
-"""
-Vehicle model — every vehicle that enters is registered here.
-"""
+"""One row per vehicle seen at a gate."""
 from __future__ import annotations
 
 import uuid
@@ -24,24 +22,21 @@ class Vehicle(Base):
     )
     license_plate_confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
 
-    # Vehicle attributes (detected by YOLO + classifiers)
     vehicle_type: Mapped[str | None] = mapped_column(
         String(50), nullable=True,
-    )  # car, truck, motorcycle, bus
+    )
     vehicle_type_confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
     color: Mapped[str | None] = mapped_column(String(30), nullable=True)
     color_confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
     brand: Mapped[str | None] = mapped_column(String(50), nullable=True)
     brand_confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
 
-    # Entry image and metadata
     entry_image_path: Mapped[str | None] = mapped_column(Text, nullable=True)
     entry_video_url: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    # Feature vector for ReID (serialized numpy array as bytes)
+    # Serialized numpy array, kept for a future ReID model.
     feature_vector: Mapped[bytes | None] = mapped_column(nullable=True)
 
-    # Timestamps
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(),
     )
@@ -49,7 +44,6 @@ class Vehicle(Base):
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(),
     )
 
-    # Relationships
     sessions: Mapped[list["ParkingSession"]] = relationship(
         back_populates="vehicle", cascade="all, delete-orphan",
     )

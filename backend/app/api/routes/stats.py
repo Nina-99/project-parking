@@ -1,6 +1,4 @@
-"""
-Statistics and reports endpoints.
-"""
+"""Read-only aggregates over the stored vehicles and sessions."""
 from __future__ import annotations
 
 import uuid

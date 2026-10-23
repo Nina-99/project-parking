@@ -1,9 +1,4 @@
-"""
-Celery application configuration.
-
-Workers se ejecutan en un proceso separado (o container)
-y procesan las tareas de inferencia YOLO de forma asíncrona.
-"""
+"""Celery application for the detection worker."""
 from __future__ import annotations
 
 from celery import Celery

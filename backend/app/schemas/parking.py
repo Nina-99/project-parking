@@ -1,4 +1,4 @@
-"""Pydantic schemas for ParkingSession and entry/exit operations."""
+"""Schemas for entry, exit and session responses."""
 from __future__ import annotations
 
 import uuid
@@ -7,10 +7,8 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field
 
 
-# ── Entry ────────────────────────────────────────────
-
 class EntryRequest(BaseModel):
-    """POST /api/v1/entry — receive an image from the entry gate."""
+    """Body of a POST to the entry gate."""
     gate_id: str = Field(..., description="Gate identifier (e.g. 'gate-1')")
     image: str = Field(..., description="Base64-encoded JPEG image of the vehicle")
     timestamp: datetime | None = None
@@ -25,10 +23,8 @@ class EntryResponse(BaseModel):
     status: str = "registered"
 
 
-# ── Exit ─────────────────────────────────────────────
-
 class ExitRequest(BaseModel):
-    """POST /api/v1/exit — receive an image from the exit gate."""
+    """Body of a POST to the exit gate."""
     gate_id: str
     image: str  # Base64 JPEG
     session_id: uuid.UUID | None = None  # If we know the session
@@ -44,8 +40,6 @@ class ExitResponse(BaseModel):
     duration_minutes: float | None
     status: str
 
-
-# ── Session ──────────────────────────────────────────
 
 class SessionResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)

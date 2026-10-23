@@ -1,14 +1,11 @@
-"""
-WebSocket endpoint for real-time occupancy updates.
+"""WebSocket endpoint for live occupancy events.
 
-Frontend se conecta acá y recibe eventos en vivo:
-  - vehicle_entry
-  - vehicle_exit
-  - occupancy_update
+The worker publishes to Redis; this socket keeps the client connection open and
+sends a heartbeat. Message types: ``vehicle_entry``, ``vehicle_exit``,
+``occupancy_update``, ``ping``.
 """
 from __future__ import annotations
 
-import json
 import asyncio
 from datetime import datetime
 
@@ -18,7 +15,7 @@ router = APIRouter()
 
 
 class ConnectionManager:
-    """Manages WebSocket connections and broadcasts."""
+    """Keeps the open sockets and broadcasts to them."""
 
     def __init__(self) -> None:
         self.active_connections: list[WebSocket] = []
@@ -47,19 +44,9 @@ manager = ConnectionManager()
 
 @router.websocket("/occupancy")
 async def occupancy_websocket(websocket: WebSocket):
-    """
-    WebSocket endpoint for real-time parking occupancy.
-
-    Usage from frontend:
-      const ws = new WebSocket("ws://localhost:8000/api/v1/ws/occupancy");
-      ws.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-        // data.type: "vehicle_entry" | "vehicle_exit" | "occupancy_update" | "ping"
-      };
-    """
+    """Hold the connection open and send a heartbeat every 30 s."""
     await manager.connect(websocket)
     try:
-        # Send heartbeat every 30s
         while True:
             await websocket.send_json({"type": "ping", "timestamp": str(datetime.now())})
             await asyncio.sleep(30)

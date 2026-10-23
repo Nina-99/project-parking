@@ -1,6 +1,3 @@
-/**
- * API service — centralized HTTP calls to the FastAPI backend.
- */
 const API_BASE = "/api/v1";
 
 export interface ActiveSession {

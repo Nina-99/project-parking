@@ -1,12 +1,4 @@
-"""
-RTSP stream capturer — runs as a separate process per camera.
-
-Captures frames from an RTSP stream, applies frame skipping,
-and dispatches Celery tasks for detection.
-
-Usage:
-    python rtsp-capture/capture.py --camera-id gate-1 --rtsp-url rtsp://...
-"""
+"""RTSP reader for one camera: samples frames and queues them for detection."""
 from __future__ import annotations
 
 import argparse
@@ -21,7 +13,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-# Add parent to path for imports
+# So `backend.*` resolves when the file is run as a script.
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 # Force RTSP over TCP. OpenCV's FFmpeg backend negotiates UDP by default, and
@@ -80,17 +72,12 @@ class ReconnectPolicy:
 
 
 class RTSPCapturer:
-    """
-    Manages an RTSP camera stream with reconnection and frame sampling.
+    """One camera stream, with reconnection, sampling and motion gating.
 
-    Attributes:
-        camera_id: Human-readable camera name (e.g., 'gate-1', 'gate-2').
-        rtsp_url: Full RTSP URL (rtsp://user:pass@ip:554/stream).
-        sample_interval: Process one frame every N seconds.
-        gate: ``entry`` or ``exit``: only an entry opens a parking session.
-        motion_threshold: Mean absolute difference, over a 160x90 grey copy of
-            the frame, above which the frame is worth an inference. A parked
-            vehicle produces none, so the worker is not asked about it.
+    ``gate`` is ``entry`` or ``exit``: only an entry opens a parking session.
+    ``motion_threshold`` is the mean absolute difference, over a 160x90 grey
+    copy of the frame, above which the frame is worth an inference. A parked
+    vehicle produces none, so the worker is not asked about it.
     """
 
     MOTION_SIZE = (160, 90)
@@ -132,7 +119,6 @@ class RTSPCapturer:
         if not self._running:
             return
 
-        # Set buffer size to minimum for lower latency
         self._cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
 
         print(f"[{self.camera_id}] Connected. Sampling every {self.sample_interval}s")
@@ -157,7 +143,6 @@ class RTSPCapturer:
             frame_count += 1
             now = time.time()
 
-            # Frame skipping: only process every sample_interval seconds
             if now - last_process_time >= self.sample_interval:
                 self._process_frame(frame)
                 last_process_time = now
@@ -290,12 +275,8 @@ def main() -> None:
     signal.signal(signal.SIGINT, _signal_handler)
     signal.signal(signal.SIGTERM, _signal_handler)
 
-    print("\n=== Parking RTSP Capturer ===")
-    print(f"Camera:  {args.camera_id}")
-    print(f"Stream:  {args.rtsp_url}")
-    print(f"Rate:    every {args.interval}s")
-    print(f"Gate:    {args.gate}")
-    print("============================\n")
+    print(f"capturing {args.rtsp_url} as {args.camera_id} "
+          f"({args.gate}, every {args.interval}s)")
 
     capturer.start()
 

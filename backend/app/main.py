@@ -1,6 +1,4 @@
-"""
-FastAPI application entry point for Parking Intelligence System.
-"""
+"""FastAPI entry point."""
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
@@ -15,16 +13,14 @@ from backend.app.api.routes import router as api_router
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    """Startup: create DB tables if they don't exist (dev mode)."""
-    # Import all models so they register with Base.metadata
-    import backend.app.models  # noqa: F401
+    """Create the tables on startup; dev shortcut until Alembic is wired in."""
+    import backend.app.models  # noqa: F401  (registers the metadata)
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
     yield
 
-    # Shutdown
     await engine.dispose()
 
 
@@ -34,7 +30,6 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
@@ -43,7 +38,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# API routes
 app.include_router(api_router, prefix="/api/v1")
 
 

@@ -1,4 +1,4 @@
-"""Mount all API routers."""
+"""API router: one prefix per resource."""
 from __future__ import annotations
 
 from fastapi import APIRouter

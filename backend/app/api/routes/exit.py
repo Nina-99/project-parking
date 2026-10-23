@@ -1,6 +1,4 @@
-"""
-Exit gate endpoint.
-"""
+"""Exit gate endpoint."""
 from __future__ import annotations
 
 import uuid
@@ -24,12 +22,7 @@ async def register_exit(
     image: UploadFile | None = File(None),
     db_session: AsyncSession = Depends(get_session),
 ):
-    """
-    Register a vehicle exit.
-
-    If session_id is provided, close that session.
-    Otherwise, attempt to match via ReID or license plate (future).
-    """
+    """Close the given session, or refuse when no session was provided."""
     if not session_id:
         raise HTTPException(
             status_code=400,

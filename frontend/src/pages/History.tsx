@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Search, ArrowUpDown } from "lucide-react";
-import { getHistory, type SessionHistory } from "../services/api";
+import { getHistory } from "../services/api";
 import { useState } from "react";
 
 function formatDuration(seconds: number | null): string {
@@ -33,7 +33,6 @@ export function History() {
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold text-gray-900">Historial</h2>
 
-        {/* Search */}
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input
@@ -46,7 +45,6 @@ export function History() {
         </div>
       </div>
 
-      {/* Table */}
       <div className="card overflow-hidden p-0">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">

@@ -1,9 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { OccupancyWebSocket, type WsMessage } from "../services/websocket";
 
-/**
- * Hook for consuming WebSocket occupancy updates.
- */
 export function useWebSocket() {
   const [lastMessage, setLastMessage] = useState<WsMessage | null>(null);
 
@@ -24,9 +21,6 @@ export function useWebSocket() {
   return { lastMessage };
 }
 
-/**
- * Hook for polling-based data fetching (fallback when WS is not available).
- */
 export function usePolling<T>(
   fetcher: () => Promise<T>,
   intervalMs = 5000
