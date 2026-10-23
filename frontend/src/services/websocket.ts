@@ -14,7 +14,7 @@ export class OccupancyWebSocket {
 
   constructor() {
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    this.url = `${protocol}//${window.location.host}/ws/occupancy`;
+    this.url = `${protocol}//${window.location.host}/api/v1/ws/occupancy`;
   }
 
   connect() {

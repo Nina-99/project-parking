@@ -44,6 +44,8 @@ class Settings(BaseSettings):
     # Redis / Celery
     CELERY_BROKER_URL: str = "redis://localhost:6379/0"
     CELERY_RESULT_BACKEND: str = "redis://localhost:6379/0"
+    # Channel the worker publishes gate events on and the API relays to browsers.
+    EVENTS_CHANNEL: str = "parking:events"
 
     # YOLO
     YOLO_MODEL_PATH: str = "yolo26n.pt"

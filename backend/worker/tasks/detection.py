@@ -90,7 +90,9 @@ def process_frame(self, camera_id: str, frame_bytes: bytes,  # noqa: ARG001
                 gate=gate,
                 image_path=str(crop_path) if crop_path else None,
                 uow=uow,
-                publisher=RedisEventPublisher(settings.CELERY_BROKER_URL),
+                publisher=RedisEventPublisher(
+                    settings.CELERY_BROKER_URL, settings.EVENTS_CHANNEL,
+                ),
                 clock=SystemClock(),
             )
         outcomes.append(asdict(outcome))
