@@ -1,7 +1,7 @@
-"""CRNN PyTorch Training CLI for Bolivian License Plate OCR.
+"""CRNN training CLI for Bolivian plate OCR.
 
-Implements Two-Stage Transfer Learning (Synthetic Pretraining + Real Fine-Tuning)
-aligned with thesis ablation splits in ``ablation/``.
+Two stages: pretraining on synthetic plates, then fine-tuning on real ones. The
+splits come from ``ablation/`` so both arms are scored on the same test set.
 """
 
 from __future__ import annotations
@@ -10,6 +10,7 @@ import argparse
 import json
 import random
 import sys
+import time
 from pathlib import Path
 
 import cv2
@@ -22,6 +23,7 @@ import torchvision.models as models
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+from _train_common import autocast_ctx  # noqa: E402
 from plate_dataset.config import DEFAULT_CONFIG_PATH, load_config  # noqa: E402
 from plate_dataset.synth_plates.ablation import OcrScores, score_pairs  # noqa: E402
 
@@ -304,6 +306,34 @@ def evaluate(model: ResNetCRNN, dataloader: DataLoader, device: torch.device) ->
     return score_pairs(pairs_raw), score_pairs(pairs_heuristic)
 
 
+def _save_resume(path: Path, epoch: int, model, optimizer, scheduler) -> None:
+    """Persist one epoch so an interrupted run can continue instead of restarting.
+
+    Written to a temp file and moved into place: a kill during the write must
+    never leave a truncated checkpoint that looks valid on resume.
+    """
+    tmp = path.with_suffix(".tmp")
+    torch.save(
+        {
+            "epoch": epoch,
+            "model": model.state_dict(),
+            "optimizer": optimizer.state_dict(),
+            "scheduler": scheduler.state_dict() if scheduler is not None else None,
+        },
+        tmp,
+    )
+    tmp.replace(path)
+
+
+def _load_resume(path: Path, model, optimizer, scheduler, device) -> int:
+    state = torch.load(path, map_location=device)
+    model.load_state_dict(state["model"])
+    optimizer.load_state_dict(state["optimizer"])
+    if scheduler is not None and state.get("scheduler") is not None:
+        scheduler.load_state_dict(state["scheduler"])
+    return int(state["epoch"]) + 1
+
+
 def set_stage_freezing(model: ResNetCRNN, stage: str):
     if stage == "stage1_synth":
         # Stage 1 trains the BiLSTM+FC head only; the whole backbone stays frozen
@@ -365,6 +395,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--loader-workers", type=int, default=8,
                         help="Decoding workers. Zero makes the GPU wait on a single "
                              "core to decode 300k JPEGs, which is most of the epoch.")
+    parser.add_argument("--resume", action="store_true",
+                        help="Continue the current stage from resume_stage{1,2}.pt if present.")
+    parser.add_argument("--amp", choices=("bf16", "off"), default="bf16",
+                        help="Autocast precision for the backbone. CTC is always fp32.")
     parser.add_argument("--save-dir", type=Path, default=Path("/tmp/opencode/ocr_checkpoints"))
     return parser
 
@@ -387,7 +421,8 @@ def current_lr(optimizer: optim.Optimizer) -> float:
     return float(optimizer.param_groups[0]["lr"])
 
 
-def train_one_epoch(model, dataloader, optimizer, criterion, device, clip_grad: float = 1.5):
+def train_one_epoch(model, dataloader, optimizer, criterion, device, clip_grad: float = 1.5,
+                    amp: str = "bf16"):
     model.train()
     total_loss = 0.0
     for imgs, targets, target_lengths, _ in dataloader:
@@ -396,7 +431,13 @@ def train_one_epoch(model, dataloader, optimizer, criterion, device, clip_grad: 
         target_lengths = target_lengths.to(device)
 
         optimizer.zero_grad()
-        logits = model(imgs)  # (W', B, num_classes)
+        with autocast_ctx(device, amp):
+            logits = model(imgs)  # (W', B, num_classes)
+        # CTC stays in fp32. log_softmax over 37 classes in bf16 loses precision
+        # exactly where CTC needs it (paths that sum to the target), and a loss
+        # that goes inf/NaN under autocast burns the whole run. Measured: the
+        # autocast only covers the backbone, which is where the speedup lives.
+        logits = logits.float()
         w_prime, b_size, _ = logits.shape
 
         input_lengths = torch.full(
@@ -447,7 +488,9 @@ def main(argv: list[str] | None = None) -> None:
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     pin_memory = device.type == "cuda"
-    print(f"[ocr-train] Using device: {device}")
+    if device.type == "cuda":
+        torch.backends.cudnn.benchmark = True
+    print(f"[ocr-train] Using device: {device}  amp: {args.amp}")
 
     args.save_dir.mkdir(parents=True, exist_ok=True)
     checkpoint_synth = args.save_dir / "crnn_stage1_synth.pt"
@@ -461,6 +504,8 @@ def main(argv: list[str] | None = None) -> None:
         test_ds, batch_size=args.batch_size, shuffle=False, collate_fn=ctc_collate_fn,
         num_workers=args.loader_workers, pin_memory=pin_memory,
     )
+
+    stage1_ran = False
 
     # --- STAGE 1: Synthetic Pretraining ---
     if args.stage in ["stage1_synth", "full_pipeline"] and train_synth_stems:
@@ -496,9 +541,16 @@ def main(argv: list[str] | None = None) -> None:
         # Slower LR decay to give CTC time to align characters
         scheduler = build_scheduler(optimizer, args.lr_schedule, patience=5)
 
-        for epoch in range(1, args.epochs_synth + 1):
+        resume1 = args.save_dir / "resume_stage1.pt"
+        start_epoch = 1
+        if args.resume and resume1.exists():
+            start_epoch = _load_resume(resume1, model, optimizer, scheduler, device)
+            print(f"[ocr-train] resuming stage 1 at epoch {start_epoch}")
+        for epoch in range(start_epoch, args.epochs_synth + 1):
+            t_epoch = time.perf_counter()
             loss = train_one_epoch(model, synth_loader, optimizer, criterion, device,
-                                   clip_grad=args.clip_grad)
+                                   clip_grad=args.clip_grad, amp=args.amp)
+            epoch_s = time.perf_counter() - t_epoch
             if scheduler is not None:
                 scheduler.step(loss)
             # evaluate() returns both the raw and the heuristic decoding; stage 1
@@ -512,14 +564,19 @@ def main(argv: list[str] | None = None) -> None:
                 synth_part = (
                     f"SynthVal Acc: {synth_scores.char_accuracy * 100:.1f}% "
                     f"(EM:{synth_scores.exact_match * 100:.1f}%) | ")
+            n_synth = len(synth_train_stems)
             print(
-                f"Epoch {epoch:02d}/{args.epochs_synth:02d} | Synth Loss: {loss:.4f} "
+                f"Epoch {epoch:02d}/{args.epochs_synth:02d} | {epoch_s:6.1f}s "
+                f"| {n_synth / epoch_s:6.1f} img/s "
+                f"| Synth Loss: {loss:.4f} "
                 f"| LR {current_lr(optimizer):.2e} | "
                 f"{synth_part}"
                 f"RealTest Acc: {scores_raw.char_accuracy * 100:.1f}% "
                 f"(EM:{scores_raw.exact_match * 100:.1f}%)",
                 flush=True,
             )
+            _save_resume(resume1, epoch, model, optimizer, scheduler)
+        stage1_ran = True
 
         torch.save(model.state_dict(), checkpoint_synth)
         print(f"[ocr-train] Saved Stage 1 model to {checkpoint_synth}")
@@ -527,7 +584,10 @@ def main(argv: list[str] | None = None) -> None:
     # --- STAGE 2: Real Fine-Tuning ---
     if args.stage in ["stage2_real", "full_pipeline"] and train_real_stems:
         print("\n=== STARTING STAGE 2: Real Fine-Tuning ===")
-        if checkpoint_synth.exists() and args.stage == "stage2_real":
+        # On a resumed full_pipeline the stage-1 loop is skipped (start_epoch >
+        # epochs_synth), so the in-memory model would be random weights unless we
+        # load them here. Same for a standalone --stage stage2_real.
+        if checkpoint_synth.exists() and (args.stage == "stage2_real" or not stage1_ran):
             model.load_state_dict(torch.load(checkpoint_synth, map_location=device))
             print(f"[ocr-train] Loaded Stage 1 weights from {checkpoint_synth}")
 
@@ -543,20 +603,29 @@ def main(argv: list[str] | None = None) -> None:
         optimizer = optim.Adam([p for p in model.parameters() if p.requires_grad], lr=args.lr_real)
         scheduler = build_scheduler(optimizer, args.lr_schedule, patience=4)
 
-        for epoch in range(1, args.epochs_real + 1):
+        resume2 = args.save_dir / "resume_stage2.pt"
+        start_epoch = 1
+        if args.resume and resume2.exists():
+            start_epoch = _load_resume(resume2, model, optimizer, scheduler, device)
+            print(f"[ocr-train] resuming stage 2 at epoch {start_epoch}")
+        for epoch in range(start_epoch, args.epochs_real + 1):
+            t_epoch = time.perf_counter()
             loss = train_one_epoch(model, real_loader, optimizer, criterion, device,
-                                   clip_grad=args.clip_grad)
+                                   clip_grad=args.clip_grad, amp=args.amp)
+            epoch_s = time.perf_counter() - t_epoch
             if scheduler is not None:
                 scheduler.step(loss)
             scores_raw, scores_heur = evaluate(model, test_loader, device)
             print(
-                f"Epoch {epoch:02d}/{args.epochs_real:02d} | Real Loss: {loss:.4f} "
+                f"Epoch {epoch:02d}/{args.epochs_real:02d} | {epoch_s:6.1f}s "
+                f"| Real Loss: {loss:.4f} "
                 f"| LR {current_lr(optimizer):.2e} | "
                 f"Raw Acc: {scores_raw.char_accuracy * 100:.1f}% (EM:{scores_raw.exact_match * 100:.1f}%) | "
                 f"Heur Acc: {scores_heur.char_accuracy * 100:.1f}% "
                 f"(EM:{scores_heur.exact_match * 100:.1f}%)",
                 flush=True,
             )
+            _save_resume(resume2, epoch, model, optimizer, scheduler)
 
         torch.save(model.state_dict(), checkpoint_final)
         print(f"[ocr-train] Saved Stage 2 model to {checkpoint_final}")
