@@ -11,11 +11,16 @@ from datetime import datetime
 from typing import Protocol
 
 from backend.domain.matching import OpenSession
-from backend.domain.vehicle import VehicleAttributes
+from backend.domain.vehicle import Plate, VehicleAttributes
 
 
 class VehicleStore(Protocol):
-    def add(self, attributes: VehicleAttributes, image_path: str | None) -> str: ...
+    def add(
+        self,
+        attributes: VehicleAttributes,
+        plate: Plate | None,
+        image_path: str | None,
+    ) -> str: ...
 
 
 class SessionStore(Protocol):
@@ -23,7 +28,15 @@ class SessionStore(Protocol):
 
     def active(self) -> list[OpenSession]: ...
 
-    def close(self, session_id: str, at: datetime, gate: str) -> None: ...
+    def close(
+        self,
+        session_id: str,
+        at: datetime,
+        *,
+        gate: str | None = None,
+        reason: str | None = None,
+        operator: str | None = None,
+    ) -> int: ...
 
 
 class EventPublisher(Protocol):

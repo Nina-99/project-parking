@@ -13,16 +13,24 @@ from sqlalchemy.orm import Session
 
 from backend.app.models.parking_session import ParkingSession, SessionStatus
 from backend.app.models.vehicle import Vehicle
-from backend.domain.matching import OpenSession
-from backend.domain.vehicle import VehicleAttributes
+from backend.domain.errors import SessionNotActiveError, SessionNotFoundError
+from backend.domain.matching import OpenSession, normalize_plate
+from backend.domain.vehicle import Plate, VehicleAttributes
 
 
 class SqlAlchemyVehicleStore:
     def __init__(self, session: Session) -> None:
         self._session = session
 
-    def add(self, attributes: VehicleAttributes, image_path: str | None) -> str:
+    def add(
+        self,
+        attributes: VehicleAttributes,
+        plate: Plate | None,
+        image_path: str | None,
+    ) -> str:
         row = Vehicle(
+            license_plate=normalize_plate(plate.text) if plate else None,
+            license_plate_confidence=plate.confidence if plate else None,
             vehicle_type=attributes.vehicle_type,
             vehicle_type_confidence=attributes.vehicle_type_confidence,
             color=attributes.color,
@@ -66,13 +74,29 @@ class SqlAlchemySessionStore:
             for parking, vehicle in rows
         ]
 
-    def close(self, session_id: str, at: datetime, gate: str) -> None:
+    def close(
+        self,
+        session_id: str,
+        at: datetime,
+        *,
+        gate: str | None = None,
+        reason: str | None = None,
+        operator: str | None = None,
+    ) -> int:
         row = self._session.get(ParkingSession, uuid.UUID(session_id))
         if row is None:
-            raise LookupError(f"session {session_id} does not exist")
+            raise SessionNotFoundError(session_id)
+        if row.status is not SessionStatus.ACTIVE:
+            raise SessionNotActiveError(session_id)
+
         row.exit_gate = gate
         row.exit_time = at
+        duration = 0
         if row.entry_time is not None:
-            row.duration_seconds = max(0, int((at - row.entry_time).total_seconds()))
+            duration = max(0, int((at - row.entry_time).total_seconds()))
+        row.duration_seconds = duration
         row.status = SessionStatus.COMPLETED
+        row.close_reason = reason
+        row.closed_by = operator
         self._session.flush()
+        return duration

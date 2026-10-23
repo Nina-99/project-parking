@@ -46,7 +46,7 @@ def register_observation(
     if gate not in GATES:
         raise ValueError(f"gate must be one of {GATES}, got {gate!r}")
 
-    vehicle_id = uow.vehicles.add(event.attributes, image_path)
+    vehicle_id = uow.vehicles.add(event.attributes, plate, image_path)
 
     session_id: str | None = None
     matched_session_id: str | None = None
@@ -61,7 +61,12 @@ def register_observation(
             uow.sessions.active(),
         )
         if match is not None:
-            uow.sessions.close(match.session_id, event.observed_at, event.camera_id)
+            uow.sessions.close(
+                match.session_id,
+                event.observed_at,
+                gate=event.camera_id,
+                reason="plate_match",
+            )
             matched_session_id = match.session_id
 
     uow.commit()

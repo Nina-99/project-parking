@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.app.core.config import settings
 from backend.app.core.database import get_session
 from backend.app.models.parking_session import ParkingSession, SessionStatus
 from backend.app.models.vehicle import Vehicle
@@ -17,6 +18,7 @@ from backend.domain.colours import (
     colour_counts,
     report_bucket,
 )
+from backend.domain.session import age_minutes, is_stale
 
 router = APIRouter()
 
@@ -32,6 +34,7 @@ async def get_active_sessions(
         .where(ParkingSession.status == SessionStatus.ACTIVE),
     )
     rows = result.all()
+    now = datetime.now(UTC)
     return [
         ActiveSessionResponse(
             id=ps.id,
@@ -41,6 +44,8 @@ async def get_active_sessions(
             license_plate=v.license_plate,
             vehicle_type=v.vehicle_type,
             color=v.color,
+            stale=is_stale(ps.entry_time, now, settings.STALE_SESSION_HOURS),
+            age_minutes=age_minutes(ps.entry_time, now),
         )
         for ps, v in rows
     ]
@@ -75,6 +80,8 @@ async def get_history(
             license_plate=v.license_plate,
             vehicle_type=v.vehicle_type,
             color=v.color,
+            close_reason=ps.close_reason,
+            closed_by=ps.closed_by,
         )
         for ps, v in rows
     ]

@@ -69,6 +69,10 @@ class Settings(BaseSettings):
     ENTRY_IMAGE_DIR: str = "/var/lib/smart-parking/entries"
     DETECTION_INTERVAL_MS: int = 500  # Sample frame every N ms
 
+    # An active session older than this is shown to the operator as orphaned.
+    # It is a display policy, not a state transition: no job writes it.
+    STALE_SESSION_HOURS: float = 12.0
+
     # RTSP — default cameras (overridable via .env)
     # NoDecode: the value is a comma-separated list, not JSON. Without it
     # pydantic-settings tries to json.loads() the raw string first and fails.

@@ -21,6 +21,8 @@ class SessionResponse(BaseModel):
     license_plate: str | None = None
     vehicle_type: str | None = None
     color: str | None = None
+    close_reason: str | None = None
+    closed_by: str | None = None
 
 
 class ActiveSessionResponse(BaseModel):
@@ -33,3 +35,6 @@ class ActiveSessionResponse(BaseModel):
     license_plate: str | None
     vehicle_type: str | None
     color: str | None
+    # Derived from the entry time at read time, never written to the row.
+    stale: bool = False
+    age_minutes: int = 0

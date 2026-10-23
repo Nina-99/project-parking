@@ -10,7 +10,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable
 
 import redis.asyncio as redis
 
@@ -49,7 +49,7 @@ async def stream_events(
 
 async def relay(
     url: str,
-    broadcast,
+    broadcast: Callable[[dict[str, object]], Awaitable[None]],
     channel: str = EVENTS_CHANNEL,
     retry_seconds: float = 2.0,
 ) -> None:
