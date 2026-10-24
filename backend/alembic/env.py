@@ -18,9 +18,15 @@ target_metadata = Base.metadata
 
 
 def _database_url() -> str:
-    """Explicit override for tests, otherwise the configured database."""
+    """The synchronous driver is psycopg 3, not psycopg2.
+
+    The async URL cannot be handed to Alembic as-is, and stripping ``+asyncpg``
+    leaves a bare ``postgresql://`` that SQLAlchemy resolves to psycopg2 -- which
+    is not a dependency. Prefer the explicit sync URL and normalise either form.
+    """
     override = config.attributes.get("sqlalchemy_url")
-    return str(override or settings.DATABASE_URL).replace("+asyncpg", "")
+    url = str(override or settings.DATABASE_URL_SYNC)
+    return url.replace("+asyncpg", "+psycopg")
 
 
 def run_migrations_offline() -> None:
