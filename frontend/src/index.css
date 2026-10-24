@@ -1,31 +1,143 @@
 @import "tailwindcss";
 
-body {
-  font-family:
-    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",
-    Arial, sans-serif;
+@theme {
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-display: "Space Grotesk", "Inter Variable", ui-sans-serif, system-ui,
+    sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo,
+    Consolas, monospace;
+
+  --color-canvas: #f5f7fa;
+  --color-surface: #ffffff;
+  --color-elevated: #f1f5f9;
+  --color-ink: #0f172a;
+  --color-muted: #475569;
+  --color-subtle: #64748b;
+  --color-border: #e2e8f0;
+
+  --color-accent: #0f766e;
+  --color-accent-soft: #ccfbf1;
+  --color-on-accent: #ffffff;
+
+  --color-live: #047857;
+  --color-warn: #b45309;
+  --color-danger: #b91c1c;
+
+  --color-brand: #0f172a;
+  --color-brand-ink: #f8fafc;
+}
+
+:root {
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --color-canvas: #0b1220;
+  --color-surface: #111827;
+  --color-elevated: #172033;
+  --color-ink: #e5e7eb;
+  --color-muted: #94a3b8;
+  --color-subtle: #64748b;
+  --color-border: #1f2937;
+
+  --color-accent: #2dd4bf;
+  --color-accent-soft: #134e4a;
+  --color-on-accent: #042f2e;
+
+  --color-live: #34d399;
+  --color-warn: #fbbf24;
+  --color-danger: #f87171;
+}
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    @apply bg-canvas text-ink font-sans;
+  }
+
+  ::selection {
+    @apply bg-accent/20 text-ink;
+  }
 }
 
 @layer components {
   .card {
-    @apply bg-white rounded-xl shadow-sm border border-gray-200 p-6;
+    @apply bg-surface rounded-xl border border-border p-6 shadow-sm;
   }
   .stat-card {
-    @apply card flex flex-col gap-1;
+    @apply bg-surface rounded-xl border border-border p-6 shadow-sm flex flex-col gap-1;
   }
   .stat-value {
-    @apply text-3xl font-bold text-gray-900;
+    @apply font-display text-3xl font-semibold tracking-tight text-ink tabular-nums;
   }
   .stat-label {
-    @apply text-sm text-gray-500 font-medium;
+    @apply text-sm text-muted font-medium;
   }
   .badge-active {
-    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800;
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-live/10 text-live;
   }
   .badge-completed {
-    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600;
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-elevated text-muted border border-border;
   }
   .badge-stale {
-    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800;
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-warn/10 text-warn;
+  }
+  .badge-danger {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-danger/10 text-danger;
+  }
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-on-accent transition-colors hover:bg-accent/90 disabled:opacity-50;
+  }
+  .btn-secondary {
+    @apply inline-flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-sm font-medium text-muted transition-colors hover:bg-elevated hover:text-ink;
+  }
+  .field {
+    @apply w-full rounded-lg border border-border bg-elevated px-3 py-2 text-sm text-ink placeholder:text-subtle outline-none transition-colors focus:border-accent focus:ring-2 focus:ring-accent/25;
+  }
+  .live-dot {
+    @apply inline-block h-2 w-2 rounded-full bg-live;
+    animation: live-pulse 2.4s ease-in-out infinite;
+  }
+  .blueprint {
+    background-image:
+      linear-gradient(to right, rgb(255 255 255 / 0.055) 1px, transparent 1px),
+      linear-gradient(to bottom, rgb(255 255 255 / 0.055) 1px, transparent 1px);
+    background-size: 34px 34px;
+  }
+}
+
+@keyframes live-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 currentColor;
+  }
+  50% {
+    opacity: 0.55;
+    box-shadow: 0 0 0 4px transparent;
+  }
+}
+
+@keyframes feed-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@layer components {
+  .feed-item {
+    animation: feed-in 220ms ease-out;
   }
 }
