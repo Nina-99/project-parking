@@ -132,7 +132,18 @@ export interface GateEventMessage {
   timestamp: string;
 }
 
-export type WsMessage = GateEventMessage | { type: "ping"; timestamp: string };
+export interface SessionClosedMessage {
+  type: "session_closed";
+  session_id: string;
+  operator: string;
+  reason: string;
+  timestamp: string;
+}
+
+export type WsMessage =
+  | GateEventMessage
+  | SessionClosedMessage
+  | { type: "ping"; timestamp: string };
 
 export const REQUESTABLE_COLOURS = [
   "blanco",

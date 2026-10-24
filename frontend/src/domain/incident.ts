@@ -14,6 +14,14 @@ export function formatTime(value: string): string {
   return new Date(value).toLocaleTimeString(LOCALE);
 }
 
+export function formatClock(value: string): string {
+  return new Date(value).toLocaleTimeString(LOCALE, {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+}
+
 export function formatDuration(seconds: number | null): string {
   if (!seconds) return "—";
   const minutes = Math.floor(seconds / 60);
@@ -27,8 +35,11 @@ export function formatConfidence(value: number | null): string {
 }
 
 export function describeMatch(hit: VehicleSearchHit, requestedColour?: string): string {
-  if (hit.match === "exact" || !requestedColour) {
-    return "Coincidencia exacta de color.";
+  if (!requestedColour) {
+    return "Candidato por ventana horaria.";
+  }
+  if (hit.match === "exact") {
+    return `Coincidencia exacta de ${requestedColour}.`;
   }
   return `Vecino medido: el clasificador confunde ${requestedColour} con ${hit.color}.`;
 }

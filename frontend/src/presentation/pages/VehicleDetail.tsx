@@ -21,15 +21,15 @@ export function VehicleDetail() {
   const vehicle = useVehicle(id);
 
   if (vehicle.isLoading) {
-    return <p className="text-sm text-gray-400 py-12 text-center">Cargando…</p>;
+    return <p className="text-sm text-subtle py-12 text-center">Cargando…</p>;
   }
   if (vehicle.isError || !vehicle.data) {
     return (
       <div className="space-y-4">
-        <Link to="/incidents" className="inline-flex items-center gap-1 text-sm text-gray-600 hover:text-gray-900">
+        <Link to="/incidents" className="inline-flex items-center gap-1 text-sm text-muted hover:text-ink">
           <ArrowLeft className="w-4 h-4" /> Volver a incidentes
         </Link>
-        <p className="text-sm text-red-600">No se encontró el vehículo.</p>
+        <p className="text-sm text-danger">No se encontró el vehículo.</p>
       </div>
     );
   }
@@ -40,7 +40,7 @@ export function VehicleDetail() {
     <div className="space-y-6">
       <Link
         to="/incidents"
-        className="inline-flex items-center gap-1 text-sm text-gray-600 hover:text-gray-900"
+        className="inline-flex items-center gap-1 text-sm text-muted hover:text-ink"
       >
         <ArrowLeft className="w-4 h-4" /> Volver a incidentes
       </Link>
@@ -51,10 +51,10 @@ export function VehicleDetail() {
             <img
               src={data.image_url}
               alt={`Vehículo ${data.license_plate ?? "sin placa"}`}
-              className="w-full h-80 object-cover bg-gray-100"
+              className="w-full h-80 object-cover bg-elevated"
             />
           ) : (
-            <div className="h-80 bg-gray-100 flex items-center justify-center text-gray-300">
+            <div className="h-80 bg-elevated flex items-center justify-center text-subtle">
               <ImageOff className="w-10 h-10" />
             </div>
           )}
@@ -62,38 +62,38 @@ export function VehicleDetail() {
 
         <div className="card space-y-4">
           <div>
-            <p className="font-mono text-2xl font-semibold text-gray-900">
+            <p className="font-mono text-2xl font-semibold text-ink">
               {data.license_plate ?? "Sin placa"}
             </p>
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-muted">
               Registrado el {formatDateTime(data.created_at)}
             </p>
           </div>
 
           <dl className="grid grid-cols-2 gap-4 text-sm">
             <div>
-              <dt className="text-gray-500">Tipo</dt>
-              <dd className="text-gray-900">
+              <dt className="text-muted">Tipo</dt>
+              <dd className="text-ink">
                 {data.vehicle_type ?? "—"} · {formatConfidence(data.vehicle_type_confidence)}
               </dd>
             </div>
             <div>
-              <dt className="text-gray-500">Color</dt>
-              <dd className="text-gray-900">
+              <dt className="text-muted">Color</dt>
+              <dd className="text-ink">
                 {data.color ?? "—"} · {formatConfidence(data.color_confidence)}
               </dd>
             </div>
             <div>
-              <dt className="text-gray-500">Sesiones</dt>
-              <dd className="text-gray-900">{data.sessions.length}</dd>
+              <dt className="text-muted">Sesiones</dt>
+              <dd className="text-ink">{data.sessions.length}</dd>
             </div>
             <div>
-              <dt className="text-gray-500">Id</dt>
-              <dd className="text-gray-500 font-mono text-xs truncate">{data.id}</dd>
+              <dt className="text-muted">Id</dt>
+              <dd className="text-muted font-mono text-xs truncate">{data.id}</dd>
             </div>
           </dl>
 
-          <p className="text-xs text-gray-400 flex items-center gap-1">
+          <p className="text-xs text-subtle flex items-center gap-1">
             <Car className="w-3 h-3" />
             El thumbnail corresponde a la vista más grande del vehículo.
           </p>
@@ -104,25 +104,25 @@ export function VehicleDetail() {
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-gray-200 bg-gray-50">
-                <th className="text-left py-3 px-4 font-medium text-gray-500">Ingreso</th>
-                <th className="text-left py-3 px-4 font-medium text-gray-500">Salida</th>
-                <th className="text-left py-3 px-4 font-medium text-gray-500">Duración</th>
-                <th className="text-left py-3 px-4 font-medium text-gray-500">Estado</th>
-                <th className="text-left py-3 px-4 font-medium text-gray-500">Cierre</th>
+              <tr className="border-b border-border bg-elevated">
+                <th className="text-left py-3 px-4 font-medium text-muted">Ingreso</th>
+                <th className="text-left py-3 px-4 font-medium text-muted">Salida</th>
+                <th className="text-left py-3 px-4 font-medium text-muted">Duración</th>
+                <th className="text-left py-3 px-4 font-medium text-muted">Estado</th>
+                <th className="text-left py-3 px-4 font-medium text-muted">Cierre</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-border">
               {data.sessions.length > 0 ? (
                 data.sessions.map((session) => (
-                  <tr key={session.id} className="hover:bg-gray-50">
-                    <td className="py-3 px-4 text-gray-600">
+                  <tr key={session.id} className="hover:bg-elevated">
+                    <td className="py-3 px-4 text-muted">
                       {formatDateTime(session.entry_time)}
                     </td>
-                    <td className="py-3 px-4 text-gray-600">
+                    <td className="py-3 px-4 text-muted">
                       {session.exit_time ? formatDateTime(session.exit_time) : "—"}
                     </td>
-                    <td className="py-3 px-4 text-gray-600">
+                    <td className="py-3 px-4 text-muted">
                       {formatDuration(session.duration_seconds)}
                     </td>
                     <td className="py-3 px-4">
@@ -134,14 +134,14 @@ export function VehicleDetail() {
                         {session.status === "active" ? "Activo" : "Completado"}
                       </span>
                     </td>
-                    <td className="py-3 px-4 text-gray-600">
+                    <td className="py-3 px-4 text-muted">
                       {closureLabel(session)}
                     </td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan={5} className="py-12 text-center text-gray-400">
+                  <td colSpan={5} className="py-12 text-center text-subtle">
                     Sin sesiones registradas
                   </td>
                 </tr>

@@ -1,6 +1,31 @@
 import { useState, type FormEvent } from "react";
-import { Car, LogIn } from "lucide-react";
+import {
+  Camera,
+  Car,
+  LogIn,
+  ScanSearch,
+  ShieldCheck,
+} from "lucide-react";
 import { useSession } from "../../application/session";
+import { SettingsMenu } from "../components/SettingsMenu";
+
+const highlights = [
+  {
+    icon: Camera,
+    title: "Dos portones, una ocupación",
+    text: "Entrada y salida alimentan el mismo estado, en vivo.",
+  },
+  {
+    icon: ScanSearch,
+    title: "Evidencia, no adivinanzas",
+    text: "Candidatos por ventana, color y confianza medida.",
+  },
+  {
+    icon: ShieldCheck,
+    title: "Cierre auditado",
+    text: "Cada corrección queda con operador y motivo.",
+  },
+];
 
 export function Login() {
   const { login, error } = useSession();
@@ -16,48 +41,105 @@ export function Login() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
-      <form onSubmit={submit} className="card w-full max-w-sm space-y-4">
-        <div className="flex items-center gap-3">
-          <Car className="w-8 h-8 text-primary-600" />
-          <div>
-            <h1 className="text-lg font-bold text-gray-900">Parking Intelligence</h1>
-            <p className="text-xs text-gray-500">Acceso de operador</p>
+    <div className="grid min-h-screen bg-canvas lg:grid-cols-[1.05fr_1fr]">
+      <section className="relative hidden overflow-hidden bg-brand p-12 text-brand-ink lg:flex lg:flex-col lg:justify-between">
+        <div className="absolute inset-0 blueprint opacity-70" />
+        <div className="absolute -left-24 top-1/4 h-72 w-72 rounded-full bg-accent/20 blur-3xl" />
+
+        <div className="relative">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/15 bg-white/5">
+              <Car className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold">Parking Intelligence</p>
+              <p className="text-[11px] uppercase tracking-[0.18em] text-brand-ink/60">
+                Control de acceso
+              </p>
+            </div>
           </div>
+
+          <h1 className="font-display mt-16 max-w-md text-4xl font-semibold leading-[1.08] tracking-tight xl:text-5xl">
+            Cada vehículo deja un rastro.
+          </h1>
+          <p className="mt-4 max-w-md text-sm leading-relaxed text-brand-ink/70">
+            Ocupación, evidencia y auditoría en un solo panel. Del frame al
+            incidente, sin planillas.
+          </p>
         </div>
 
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="text-gray-600 font-medium">Usuario</span>
-          <input
-            autoComplete="username"
-            value={username}
-            onChange={(event) => setUsername(event.target.value)}
-            className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
-          />
-        </label>
+        <div className="relative mt-16 space-y-5">
+          {highlights.map((item) => (
+            <div key={item.title} className="flex items-start gap-3">
+              <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-accent">
+                <item.icon className="h-4 w-4" />
+              </div>
+              <div>
+                <p className="text-sm font-medium">{item.title}</p>
+                <p className="text-xs leading-relaxed text-brand-ink/60">
+                  {item.text}
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
 
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="text-gray-600 font-medium">Contraseña</span>
-          <input
-            type="password"
-            autoComplete="current-password"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
-          />
-        </label>
+        <p className="relative mt-12 text-[11px] uppercase tracking-[0.18em] text-brand-ink/40">
+          Visión por computadora · 2026
+        </p>
+      </section>
 
-        {error && <p className="text-sm text-red-600">{error}</p>}
+      <section className="relative flex items-center justify-center px-6 py-12">
+        <div className="absolute right-6 top-6">
+          <SettingsMenu />
+        </div>
 
-        <button
-          type="submit"
-          disabled={busy}
-          className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-gray-900 text-white text-sm font-medium hover:bg-gray-800 disabled:opacity-50 transition-colors"
-        >
-          <LogIn className="w-4 h-4" />
-          {busy ? "Entrando…" : "Entrar"}
-        </button>
-      </form>
+        <form onSubmit={submit} className="w-full max-w-sm space-y-5">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-subtle">
+              Acceso de operador
+            </p>
+            <h2 className="font-display mt-2 text-2xl font-semibold tracking-tight text-ink">
+              Entrá al panel
+            </h2>
+            <p className="mt-1 text-sm text-muted">
+              Las patentes son datos personales. La sesión es obligatoria.
+            </p>
+          </div>
+
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="font-medium text-muted">Usuario</span>
+            <input
+              autoComplete="username"
+              value={username}
+              onChange={(event) => setUsername(event.target.value)}
+              className="field"
+            />
+          </label>
+
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="font-medium text-muted">Contraseña</span>
+            <input
+              type="password"
+              autoComplete="current-password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              className="field"
+            />
+          </label>
+
+          {error && <p className="text-sm text-danger">{error}</p>}
+
+          <button type="submit" disabled={busy} className="btn-primary w-full">
+            <LogIn className="h-4 w-4" />
+            {busy ? "Entrando…" : "Entrar"}
+          </button>
+
+          <p className="text-xs text-subtle">
+            Si no tenés credenciales, pedilas al administrador del sistema.
+          </p>
+        </form>
+      </section>
     </div>
   );
 }

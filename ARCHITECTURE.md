@@ -114,6 +114,18 @@ DATABASE_URL_SYNC=postgresql+psycopg://parking:parking@localhost:5432/parking \
   uv run pytest -m integration
 ```
 
+## Interfaz
+
+La UI usa tokens semánticos (`canvas`, `surface`, `ink`, `muted`, `accent`,
+`live`, `warn`, `danger`) definidos dos veces en `frontend/src/index.css`. El
+tema se elige en **Configuración** (claro / oscuro / sistema), se guarda en
+`localStorage` y se aplica antes de montar React para evitar el flash. El claro
+es el default porque es el que se lee en un proyector.
+
+`scripts/seed_demo.py` siembra tráfico de demostración (vehículos, sesiones,
+telemetría y crops) para ensayar la defensa o llenar la UI cuando las cámaras no
+están conectadas.
+
 ## Deuda conocida
 
 - El OCR está cableado pero apagado (`OCR_ENABLED=false`). Los dos lectores

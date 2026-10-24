@@ -20,16 +20,16 @@ export function History() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-gray-900">Historial</h2>
+        <h2 className="font-display text-2xl font-bold text-ink">Historial</h2>
 
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-subtle" />
           <input
             type="text"
             placeholder="Buscar placa, tipo, color..."
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            className="pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none w-72"
+            className="pl-9 pr-4 py-2 border border-border rounded-lg text-sm focus:ring-2 focus:ring-accent/30 focus:border-accent outline-none w-72"
           />
         </div>
       </div>
@@ -38,51 +38,51 @@ export function History() {
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-gray-200 bg-gray-50">
-                <th className="text-left py-3 px-4 font-medium text-gray-500">
+              <tr className="border-b border-border bg-elevated">
+                <th className="text-left py-3 px-4 font-medium text-muted">
                   <span className="flex items-center gap-1">
                     Placa <ArrowUpDown className="w-3 h-3" />
                   </span>
                 </th>
-                <th className="text-left py-3 px-4 font-medium text-gray-500">Tipo</th>
-                <th className="text-left py-3 px-4 font-medium text-gray-500">Color</th>
-                <th className="text-left py-3 px-4 font-medium text-gray-500">Ingreso</th>
-                <th className="text-left py-3 px-4 font-medium text-gray-500">Salida</th>
-                <th className="text-left py-3 px-4 font-medium text-gray-500">Duración</th>
-                <th className="text-left py-3 px-4 font-medium text-gray-500">Estado</th>
-                <th className="text-left py-3 px-4 font-medium text-gray-500">Cierre</th>
+                <th className="text-left py-3 px-4 font-medium text-muted">Tipo</th>
+                <th className="text-left py-3 px-4 font-medium text-muted">Color</th>
+                <th className="text-left py-3 px-4 font-medium text-muted">Ingreso</th>
+                <th className="text-left py-3 px-4 font-medium text-muted">Salida</th>
+                <th className="text-left py-3 px-4 font-medium text-muted">Duración</th>
+                <th className="text-left py-3 px-4 font-medium text-muted">Estado</th>
+                <th className="text-left py-3 px-4 font-medium text-muted">Cierre</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-border">
               {history.isLoading ? (
                 <tr>
-                  <td colSpan={8} className="py-12 text-center text-gray-400">
+                  <td colSpan={8} className="py-12 text-center text-subtle">
                     Cargando…
                   </td>
                 </tr>
               ) : history.isError ? (
                 <tr>
-                  <td colSpan={8} className="py-12 text-center text-red-500">
+                  <td colSpan={8} className="py-12 text-center text-danger">
                     No se pudo cargar el historial
                   </td>
                 </tr>
               ) : filtered.length > 0 ? (
                 filtered.map((session) => (
-                  <tr key={session.id} className="hover:bg-gray-50">
-                    <td className="py-3 px-4 font-medium text-gray-900">
+                  <tr key={session.id} className="hover:bg-elevated">
+                    <td className="py-3 px-4 font-medium text-ink">
                       {session.license_plate || "—"}
                     </td>
-                    <td className="py-3 px-4 text-gray-600">
+                    <td className="py-3 px-4 text-muted">
                       {session.vehicle_type || "—"}
                     </td>
-                    <td className="py-3 px-4 text-gray-600">{session.color || "—"}</td>
-                    <td className="py-3 px-4 text-gray-600">
+                    <td className="py-3 px-4 text-muted">{session.color || "—"}</td>
+                    <td className="py-3 px-4 text-muted">
                       {formatDateTime(session.entry_time)}
                     </td>
-                    <td className="py-3 px-4 text-gray-600">
+                    <td className="py-3 px-4 text-muted">
                       {session.exit_time ? formatDateTime(session.exit_time) : "—"}
                     </td>
-                    <td className="py-3 px-4 text-gray-600">
+                    <td className="py-3 px-4 text-muted">
                       {formatDuration(session.duration_seconds)}
                     </td>
                     <td className="py-3 px-4">
@@ -94,7 +94,7 @@ export function History() {
                         {session.status === "active" ? "Activo" : "Completado"}
                       </span>
                     </td>
-                    <td className="py-3 px-4 text-gray-600 text-xs">
+                    <td className="py-3 px-4 text-muted text-xs">
                       {session.closed_by
                         ? `${session.closed_by}${session.close_reason ? `: ${session.close_reason}` : ""}`
                         : session.close_reason === "plate_match"
@@ -105,7 +105,7 @@ export function History() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={8} className="py-12 text-center text-gray-400">
+                  <td colSpan={8} className="py-12 text-center text-subtle">
                     {search ? "No se encontraron resultados" : "Sin registros de ingreso"}
                   </td>
                 </tr>

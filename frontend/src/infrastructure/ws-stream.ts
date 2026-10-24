@@ -20,9 +20,10 @@ export class WebSocketEventStream implements EventStream {
     this.stopped = false;
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const url = `${protocol}//${window.location.host}/api/v1/ws/occupancy`;
-    this.socket = new WebSocket(url);
+    const socket = new WebSocket(url);
+    this.socket = socket;
 
-    this.socket.onmessage = (event) => {
+    socket.onmessage = (event) => {
       try {
         const message = JSON.parse(event.data) as WsMessage;
         this.handlers.forEach((handler) => handler(message));
@@ -31,13 +32,16 @@ export class WebSocketEventStream implements EventStream {
       }
     };
 
-    this.socket.onclose = (event) => {
+    socket.onclose = (event) => {
+      // A socket closed by StrictMode's first effect must not null the current
+      // one or schedule a reconnect that races the second effect.
+      if (this.socket !== socket) return;
       this.socket = null;
       if (this.stopped || event.code === 1008) return;
       this.reconnectTimer = window.setTimeout(() => this.connect(), RECONNECT_MS);
     };
 
-    this.socket.onerror = () => this.socket?.close();
+    socket.onerror = () => socket.close();
   }
 
   disconnect(): void {
@@ -46,8 +50,9 @@ export class WebSocketEventStream implements EventStream {
       window.clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
     }
-    this.socket?.close();
+    const socket = this.socket;
     this.socket = null;
+    socket?.close();
   }
 
   onMessage(handler: MessageHandler): () => void {

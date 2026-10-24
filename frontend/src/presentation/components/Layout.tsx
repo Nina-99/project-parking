@@ -1,4 +1,4 @@
-import { Outlet, NavLink } from "react-router-dom";
+import { NavLink, Outlet } from "react-router-dom";
 import {
   Activity,
   Car,
@@ -7,8 +7,9 @@ import {
   LogOut,
   Search,
 } from "lucide-react";
-import { useLiveEvents } from "../../application/useLiveEvents";
+import { useCameras } from "../../application/queries";
 import { useSession } from "../../application/session";
+import { SettingsMenu } from "./SettingsMenu";
 
 const navItems = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -17,55 +18,106 @@ const navItems = [
   { to: "/model", label: "Modelo", icon: Activity },
 ];
 
+function navClass(isActive: boolean): string {
+  return `flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+    isActive
+      ? "bg-accent-soft text-accent"
+      : "text-muted hover:bg-elevated hover:text-ink"
+  }`;
+}
+
 export function Layout() {
-  useLiveEvents();
   const { user, logout } = useSession();
+  const cameras = useCameras();
+
+  const total = cameras.data?.cameras.length ?? 0;
+  const online = cameras.data?.cameras.filter((camera) => camera.online).length ?? 0;
+  const camerasOk = !cameras.isError && total > 0 && online === total;
+  const cameraLabel = cameras.isLoading
+    ? "Consultando…"
+    : cameras.isError
+      ? "Sin datos"
+      : total === 0
+        ? "Sin cámaras"
+        : `${online}/${total} cámaras`;
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-3">
-              <Car className="w-8 h-8 text-primary-600" />
-              <h1 className="text-xl font-bold text-gray-900">
-                Parking Intelligence
-              </h1>
+    <div className="min-h-screen bg-canvas">
+      <header className="sticky top-0 z-50 border-b border-border bg-surface/90 backdrop-blur">
+        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent-soft text-accent">
+              <Car className="h-5 w-5" />
             </div>
-            <nav className="flex items-center gap-1">
-              {navItems.map((item) => (
-                <NavLink
-                  key={item.to}
-                  to={item.to}
-                  end={item.to === "/"}
-                  className={({ isActive }) =>
-                    `flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      isActive
-                        ? "bg-primary-50 text-primary-700"
-                        : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
-                    }`
-                  }
-                >
-                  <item.icon className="w-4 h-4" />
-                  {item.label}
-                </NavLink>
-              ))}
-              <span className="mx-2 h-6 w-px bg-gray-200" />
-              <span className="text-sm text-gray-500">{user}</span>
-              <button
-                type="button"
-                onClick={() => void logout()}
-                title="Cerrar sesión"
-                className="p-2 rounded-lg text-gray-500 hover:text-gray-900 hover:bg-gray-100 transition-colors"
+            <div className="leading-tight">
+              <p className="font-display text-sm font-semibold tracking-tight text-ink">
+                Parking Intelligence
+              </p>
+              <p className="text-[11px] uppercase tracking-[0.16em] text-subtle">
+                Control de acceso
+              </p>
+            </div>
+          </div>
+
+          <nav className="hidden items-center gap-1 md:flex">
+            {navItems.map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                end={item.to === "/"}
+                className={({ isActive }) => navClass(isActive)}
               >
-                <LogOut className="w-4 h-4" />
-              </button>
-            </nav>
+                <item.icon className="h-4 w-4" />
+                {item.label}
+              </NavLink>
+            ))}
+          </nav>
+
+          <div className="flex items-center gap-2">
+            <span
+              className={`hidden items-center gap-2 rounded-full border border-border px-3 py-1 text-xs font-medium lg:inline-flex ${
+                camerasOk ? "text-live" : "text-warn"
+              }`}
+            >
+              <span
+                className={
+                  camerasOk
+                    ? "live-dot"
+                    : "inline-block h-2 w-2 rounded-full bg-warn"
+                }
+              />
+              {cameraLabel}
+            </span>
+            <span className="hidden text-sm text-muted sm:inline">{user}</span>
+            <SettingsMenu />
+            <button
+              type="button"
+              onClick={() => void logout()}
+              title="Cerrar sesión"
+              aria-label="Cerrar sesión"
+              className="rounded-lg p-2 text-muted transition-colors hover:bg-elevated hover:text-ink"
+            >
+              <LogOut className="h-4 w-4" />
+            </button>
           </div>
         </div>
+
+        <nav className="flex items-center gap-1 overflow-x-auto border-t border-border px-4 py-2 md:hidden">
+          {navItems.map((item) => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              end={item.to === "/"}
+              className={({ isActive }) => navClass(isActive)}
+            >
+              <item.icon className="h-4 w-4" />
+              {item.label}
+            </NavLink>
+          ))}
+        </nav>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         <Outlet />
       </main>
     </div>
