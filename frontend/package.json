@@ -2,6 +2,8 @@
   "name": "parking-frontend",
   "private": true,
   "version": "0.1.0",
+  "author": "Nina",
+  "license": "UNLICENSED",
   "type": "module",
   "scripts": {
     "dev": "vite",

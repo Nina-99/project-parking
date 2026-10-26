@@ -1,0 +1,15 @@
+Copyright (c) 2026 Nina. Todos los derechos reservados.
+
+Este software, incluidos su código fuente, modelos, datasets, documentación y
+materiales asociados, es propiedad del titular y se considera información
+confidencial.
+
+No se concede permiso para usar, copiar, modificar, publicar, distribuir,
+sublicenciar ni vender copias sin el consentimiento previo y por escrito del
+titular.
+
+Evaluación académica: la universidad y su tribunal pueden revisar el Software
+con el único fin de evaluar el trabajo de grado, sin publicarlo ni
+redistribuirlo.
+
+Ver el texto completo en `LICENSE`.

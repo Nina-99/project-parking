@@ -143,3 +143,6 @@ están conectadas.
   para el ciclo entrada → evento → sesión → salida/manual close.
 - El estado de tracking se pierde al reiniciar el worker. Es visible como una
   sesión que queda abierta; la UI la muestra como huérfana pasadas 12 horas.
+
+---
+© 2026 Nina. Software propietario. Ver `LICENSE`.

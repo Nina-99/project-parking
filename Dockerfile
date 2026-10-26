@@ -12,6 +12,11 @@ RUN uv sync --frozen --no-dev --no-editable
 
 FROM python:3.12-slim
 
+LABEL org.opencontainers.image.title="Parking Intelligence API"
+LABEL org.opencontainers.image.description="Smart parking backend with computer vision"
+LABEL org.opencontainers.image.authors="Nina"
+LABEL org.opencontainers.image.licenses="Proprietary"
+
 WORKDIR /app
 
 COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages

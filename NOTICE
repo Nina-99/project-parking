@@ -1,0 +1,29 @@
+Parking Intelligence
+Copyright (c) 2026 Nina. Todos los derechos reservados.
+
+Este aviso acompaña al Software y no concede derechos sobre los componentes de
+terceros. Cada componente conserva su licencia original.
+
+Componentes principales:
+
+- Ultralytics YOLO 8.4.163 — AGPL-3.0.
+  El uso comercial o como servicio en red requiere una licencia enterprise de
+  Ultralytics o el cumplimiento de la AGPL. Revisar antes de distribuir un
+  producto propietario.
+
+- PaddleOCR / PaddlePaddle — Apache-2.0.
+- PyTorch / torchvision — BSD-3-Clause.
+- OpenCV — Apache-2.0.
+- FastAPI — MIT.
+- SQLAlchemy — MIT.
+- Celery — BSD-3-Clause.
+- redis-py — MIT. La imagen del servidor Redis 7 usa RSALv2/SSPL; revisar si se
+  ofrece Redis como servicio.
+- PostgreSQL — PostgreSQL License.
+- React / React DOM — MIT.
+- Recharts — MIT.
+- Tailwind CSS — MIT.
+- Lucide — ISC.
+
+La lista no es exhaustiva. Antes de una distribución comercial, generar un SBOM
+y revisar las licencias de todas las dependencias y de los pesos entrenados.

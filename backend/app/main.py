@@ -38,6 +38,8 @@ app = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.VERSION,
     lifespan=lifespan,
+    contact={"name": "Nina"},
+    license_info={"name": "Proprietary"},
 )
 
 app.add_middleware(

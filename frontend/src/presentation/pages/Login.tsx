@@ -85,7 +85,7 @@ export function Login() {
         </div>
 
         <p className="relative mt-12 text-[11px] uppercase tracking-[0.18em] text-brand-ink/40">
-          Visión por computadora · 2026
+          © 2026 Nina · Visión por computadora
         </p>
       </section>
 

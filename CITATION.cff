@@ -1,0 +1,16 @@
+cff-version: 1.2.0
+message: "Si usás este software, citá el trabajo de grado."
+title: "Parking Intelligence: control de acceso y ocupación con visión por computadora"
+authors:
+  - family-names: "Nina"
+year: 2026
+version: "0.2.0"
+abstract: >-
+  Sistema de control de acceso y ocupación para dos portones, con captura RTSP,
+  detección y clasificación de vehículos, sesiones auditables, búsqueda de
+  incidentes y telemetría del modelo.
+keywords:
+  - smart parking
+  - computer vision
+  - YOLO
+  - license plate recognition

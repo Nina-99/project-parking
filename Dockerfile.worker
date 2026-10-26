@@ -1,5 +1,10 @@
 FROM python:3.12-slim
 
+LABEL org.opencontainers.image.title="Parking Intelligence Worker"
+LABEL org.opencontainers.image.description="Detection and classification worker"
+LABEL org.opencontainers.image.authors="Nina"
+LABEL org.opencontainers.image.licenses="Proprietary"
+
 ENV UV_SYSTEM_PYTHON=1 \
     UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy
