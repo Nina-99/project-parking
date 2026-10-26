@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """RTSP reader for one camera: samples frames and queues them for detection."""
 from __future__ import annotations
 

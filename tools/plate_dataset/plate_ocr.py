@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """License-plate pre-labelling with PaddleOCR.
 
 PaddleOCR is used as a bootstrap *pseudo-labeller*, not as ground truth: its

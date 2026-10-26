@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: 2026 Nina
+SPDX-License-Identifier: LicenseRef-Proprietary
+-->
+
 # Parking Intelligence
 
 Sistema de control de acceso y ocupación para dos portones, con captura RTSP,

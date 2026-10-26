@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Nina
+// SPDX-License-Identifier: LicenseRef-Proprietary
+
 import type { ComponentType } from "react";
 
 export function StatCard({

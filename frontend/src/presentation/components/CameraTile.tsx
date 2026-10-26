@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Nina
+// SPDX-License-Identifier: LicenseRef-Proprietary
+
 import { Camera } from "lucide-react";
 import { formatDateTime } from "../../domain/incident";
 import type { CameraReading } from "../../domain/types";

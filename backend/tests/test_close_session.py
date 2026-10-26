@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """A manual close commits, then announces, and returns the audited outcome."""
 from __future__ import annotations
 

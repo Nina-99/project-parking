@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """One vehicle with its sessions, for the incident detail view."""
 from __future__ import annotations
 

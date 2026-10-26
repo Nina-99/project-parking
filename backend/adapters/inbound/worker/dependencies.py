@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """What the Celery task is made of.
 
 Building this in one place is what makes the task testable: the task receives a

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Session policy: a session is open, closed by evidence, or closed by a human.
 
 Staleness is **derived**, not stored. A row does not become stale because time

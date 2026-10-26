@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """A human closes a session the model could not close.
 
 This is the operational answer while plate matching is not reliable: the count

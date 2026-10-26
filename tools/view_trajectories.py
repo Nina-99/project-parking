@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Trajectory viewer CLI.
 
 Draws tracked vehicle trajectories over a reference frame so the zone polygons

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """The thesis tables must be a faithful rendering of the stored metrics."""
 
 from __future__ import annotations

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Per-track trajectory state and entry/pass classification.
 
 The extractor reasons over a track's whole trajectory, never a single frame.

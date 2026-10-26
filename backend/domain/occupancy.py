@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Occupancy as a percentage of a configured capacity.
 
 Capacity is configuration, not a table: the scope is total occupancy at the

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Interactive labeller for vehicle body type and predominant colour.
 
     uv run python tools/label_attributes.py --dataset /mnt/nina/Smart_Parking/dataset/

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Nina
+// SPDX-License-Identifier: LicenseRef-Proprietary
+
 /** Wire the adapters once. Everything below depends on the ports. */
 import type { ReactNode } from "react";
 import { ApiProvider, EventStreamProvider } from "./application/context";

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Interactive real-time zone calibrator.
 
     uv run python tools/calibrate_zones.py \

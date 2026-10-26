@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Nina
+// SPDX-License-Identifier: LicenseRef-Proprietary
+
 /** What the UI needs from the outside world. Adapters implement these. */
 import type {
   ActiveSession,

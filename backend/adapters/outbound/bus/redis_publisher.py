@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Redis implementation of the event publisher.
 
 A broker outage must not undo a committed row, so a failed publish returns False

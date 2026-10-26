@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Translate domain failures into HTTP once.
 
 A route should raise the domain error and know nothing about status codes. If a

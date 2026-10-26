@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Liveness and readiness probes.
 
 Liveness answers "is the process up". Readiness answers "can it serve": Postgres

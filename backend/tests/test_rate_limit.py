@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """The login limiter counts per key and fails open on a broker outage."""
 from __future__ import annotations
 

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """The manual close endpoint: audit in the response, 409 on a double close."""
 from __future__ import annotations
 

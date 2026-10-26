@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Fast entry-focused vehicle extractor (no plate OCR).
 
     uv run python tools/extract_entries_fast.py \

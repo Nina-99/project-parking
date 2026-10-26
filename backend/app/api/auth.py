@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Operator session: a signed cookie, no server-side session store.
 
 Plates are personal data, so the read API is not public. The token is a JWT in

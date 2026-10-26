@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Synthetic batch orchestration and export.
 
 Target sizes are sampled from the real crop distribution (median 96x39 px),

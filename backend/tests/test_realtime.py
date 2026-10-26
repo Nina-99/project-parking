@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """The browser side of the live fan-out: many clients, dead ones dropped."""
 from __future__ import annotations
 

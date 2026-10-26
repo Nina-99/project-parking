@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Render a dataset's class composition as the table the thesis needs.
 
     uv run python tools/report_dataset.py \

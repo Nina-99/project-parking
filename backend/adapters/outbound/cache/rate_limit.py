@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Fixed-window login rate limit in Redis.
 
 Fail-open on purpose: a broker outage must not lock the operator out of the

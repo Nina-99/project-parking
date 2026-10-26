@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """The incident-search route: filters, colour expansion and ordering.
 
 No database here. The session dependency is replaced with a recorder, so the

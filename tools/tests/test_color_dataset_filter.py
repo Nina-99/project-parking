@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """The colour dataset must drop excluded vehicle types at build time.
 
 Minibuses are excluded from the colour dataset because their livery makes the

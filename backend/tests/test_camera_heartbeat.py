@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """The heartbeat is best-effort: a broker outage must not stop the camera."""
 from __future__ import annotations
 

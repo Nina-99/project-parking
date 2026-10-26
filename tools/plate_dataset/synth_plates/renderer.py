@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Clean template renderer for the Bolivian national plate.
 
 Draws at high resolution (fixed 610x204, 2x the physical 305x102 ratio) so every

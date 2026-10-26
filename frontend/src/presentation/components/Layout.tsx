@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Nina
+// SPDX-License-Identifier: LicenseRef-Proprietary
+
 import { NavLink, Outlet } from "react-router-dom";
 import {
   Activity,

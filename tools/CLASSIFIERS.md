@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: 2026 Nina
+SPDX-License-Identifier: LicenseRef-Proprietary
+-->
+
 # Vehicle attribute classifiers
 
 Two classifiers run over the same input: a crop holding one vehicle, produced by

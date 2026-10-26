@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Heartbeat for one capture process.
 
 The API answers "is this camera alive?" from the last beat, so a dead process

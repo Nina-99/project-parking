@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: 2026 Nina
+SPDX-License-Identifier: LicenseRef-Proprietary
+-->
+
 # Arquitectura del software
 
 El sistema es un monolito modular: un dominio puro decide, la aplicación

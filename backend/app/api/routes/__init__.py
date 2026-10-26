@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """API router: one prefix per resource.
 
 Ingestion is not an HTTP endpoint. Frames arrive through ``capture.py`` and

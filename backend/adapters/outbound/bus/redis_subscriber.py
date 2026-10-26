@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Async Redis subscription for the API process.
 
 The worker is the only producer of gate events. The API subscribes once at

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """SQLAlchemy stores behind the application ports.
 
 The ORM models stay here. The application receives domain values and identifiers,

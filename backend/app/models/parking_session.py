@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """An entry/exit record, and the status that closes it."""
 from __future__ import annotations
 

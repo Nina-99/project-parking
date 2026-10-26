@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Occupancy is a count and a denominator; nothing else."""
 from __future__ import annotations
 

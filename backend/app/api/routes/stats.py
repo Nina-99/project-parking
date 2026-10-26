@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Read-only aggregates over the stored vehicles and sessions."""
 from __future__ import annotations
 

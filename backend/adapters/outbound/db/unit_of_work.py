@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """One transaction per use case.
 
 The commit belongs here, not to the HTTP dependency: a use case knows when its

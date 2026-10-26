@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Synchronous engine for writes outside the request event loop.
 
 The API reads with async SQLAlchemy. Writes go through the application's sync

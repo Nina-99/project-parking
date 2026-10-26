@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Command-line entry point for the plate-dataset extractor."""
 
 from __future__ import annotations

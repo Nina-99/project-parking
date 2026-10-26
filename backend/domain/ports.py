@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """The ports the application needs, and nothing else.
 
 Each protocol here exists because something below it needs to be replaced in a

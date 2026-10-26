@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Export YOLO weights to a TensorRT engine.
 
     uv run python tools/export_engine.py --model yolo26x.pt

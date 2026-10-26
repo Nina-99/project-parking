@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Camera health for the operator: who is reporting and when.
 
 The UI needs to answer "is the exit camera alive?" before trusting an empty

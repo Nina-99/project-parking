@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Configuration model for the plate-dataset extractor.
 
 Zones are polygons in normalized coordinates ([0, 1] relative to the frame) so

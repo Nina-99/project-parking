@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Liveness, readiness and read-only routes, with no database needed."""
 from __future__ import annotations
 

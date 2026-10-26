@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Extract balanced vehicle crops from the attribute queue into a folder.
 
     uv run python tools/extract_balanced_crops.py \

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Vehicle values shared by the gate policies.
 
 A classifier result without its confidence is not usable: the reporting code

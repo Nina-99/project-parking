@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """OCR ablation harness: real-only vs. real+synthetic, scored on real only.
 
 Protocol (this is what backs H1.4 in the thesis): split the real plates by

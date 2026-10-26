@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Manual session close.
 
 The operator sees a vehicle leave that the model could not prove, and closes the

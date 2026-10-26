@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Cheap motion gate used by the sparse first pass.
 
 The dense second pass must never be fed sparse frames: trackers such as

@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: 2026 Nina
+SPDX-License-Identifier: LicenseRef-Proprietary
+-->
+
 # Simulación end-to-end con los videos grabados
 
 Valida la cadena completa **sin el portón físico**: video grabado → RTSP → captura

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Drop fields nothing produces.
 
 ``feature_vector`` was measured and rejected as an identity signal; ``brand``

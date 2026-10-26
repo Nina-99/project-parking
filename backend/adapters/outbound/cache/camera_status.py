@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Camera heartbeats live in Redis, not in Postgres.
 
 They change every few seconds and are worthless after a restart; a table would

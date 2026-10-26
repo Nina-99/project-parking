@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Interactive, real-time zone calibrator.
 
 Plays a video with the tracker running and draws the trajectories live, so the

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Pydantic schemas for the read side: sessions and active vehicles."""
 from __future__ import annotations
 

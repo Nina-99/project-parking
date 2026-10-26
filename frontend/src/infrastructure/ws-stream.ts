@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Nina
+// SPDX-License-Identifier: LicenseRef-Proprietary
+
 /** WebSocket adapter. Reconnection lives here, not in a component. */
 import type { EventStream, MessageHandler } from "../application/ports";
 import type { WsMessage } from "../domain/types";

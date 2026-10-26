@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """The socket is part of the API: no valid cookie, no connection."""
 from __future__ import annotations
 

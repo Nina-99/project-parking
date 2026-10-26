@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Tests for the ablation split and OCR metrics.
 
 The split tests are the load-bearing ones: if a video ever lands on both

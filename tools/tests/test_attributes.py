@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Unit tests for the attribute vocabulary and the labelling queue.
 
 These cover the bookkeeping that decides *what still needs a label*, which is

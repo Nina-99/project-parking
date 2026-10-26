@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Train the vehicle body-type classifier with torchvision transfer learning.
 
     uv run python tools/train_type_classifier.py \

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Celery task for gate inference.
 
 The task is a thin inbound adapter: decode the frame, parse the capture time and

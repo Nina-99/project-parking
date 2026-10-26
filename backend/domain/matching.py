@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Matching an exit to its entry.
 
 This decides whether a parking session gets closed, so a wrong match corrupts the

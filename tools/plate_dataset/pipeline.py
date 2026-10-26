@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Two-pass extraction pipeline.
 
 Pass 1 scans the video sparsely and keeps only the frame windows where

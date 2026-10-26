@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Add the audit fields for a session closed by an operator.
 
 Revision ID: 0002_session_close_audit

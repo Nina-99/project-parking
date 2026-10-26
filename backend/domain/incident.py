@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Ranking for the incident search.
 
 An operator remembers "a silver vehicle entered around 10:00". The window alone

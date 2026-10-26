@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Nina
+// SPDX-License-Identifier: LicenseRef-Proprietary
+
 /** Auth adapter. The cookie is httpOnly, so this only sees the outcome. */
 import type { AuthPort } from "../application/ports";
 

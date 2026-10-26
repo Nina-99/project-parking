@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Dependencies shared by the write endpoints.
 
 The factory is injected rather than the unit of work itself: the unit of work is

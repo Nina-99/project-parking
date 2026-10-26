@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Trajectory viewer used to calibrate the zone polygons.
 
 Runs the tracker over a slice of a video *without* any zone filtering and

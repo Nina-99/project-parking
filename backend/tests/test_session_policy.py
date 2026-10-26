@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Staleness is a function of the clock, not a stored state."""
 from __future__ import annotations
 

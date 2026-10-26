@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Prepare the OCR ablation splits.
 
     uv run python tools/prepare_ocr_ablation.py --dataset ~/FNI2025/ProjectParking/Smart_Parking_dataset

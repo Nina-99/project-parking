@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: 2026 Nina
+SPDX-License-Identifier: LicenseRef-Proprietary
+-->
+
 # Plate dataset tools
 
 Extracts a license-plate dataset from recorded parking-entrance videos. The

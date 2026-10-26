@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """History keeps its list body; the total travels in a header."""
 from __future__ import annotations
 

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """A throwaway PostgreSQL database for integration tests.
 
 Skipped when no server is reachable, so the normal suite stays green on a

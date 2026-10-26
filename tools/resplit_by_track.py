@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Rebuild a YOLO dataset split by vehicle track, eliminating frame leakage.
 
     uv run python tools/resplit_by_track.py \

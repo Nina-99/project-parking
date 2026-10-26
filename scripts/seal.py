@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Insert SPDX copyright headers into tracked source files.
 
     python scripts/seal.py --check           # exit 1 if a file is missing the notice

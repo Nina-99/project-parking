@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Interactive body-type and colour labeller.
 
 Presents each pending crop from the attribute queue and records two labels:

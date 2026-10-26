@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Turning frames into gate events.
 
 One frame is not one vehicle. The gate samples every half second, so a car

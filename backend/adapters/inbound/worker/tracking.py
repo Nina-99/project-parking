@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Process-local track state, one aggregator per camera.
 
 Tracking is stateful: the aggregator has to see the frames of a camera in order.

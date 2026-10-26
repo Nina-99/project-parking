@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Both OCR training stages must run start to finish.
 
 The stage-1 branch crashed on its first epoch because evaluate() had been changed

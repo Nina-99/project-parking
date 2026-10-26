@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Seed a realistic day of traffic for demos and screenshots.
 
 This is **demo data**, not a simulation of the detector: it writes vehicles,

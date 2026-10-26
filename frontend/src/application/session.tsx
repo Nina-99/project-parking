@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Nina
+// SPDX-License-Identifier: LicenseRef-Proprietary
+
 /** Operator session state. The token itself lives in an httpOnly cookie. */
 import {
   createContext,

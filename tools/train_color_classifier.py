@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Train the vehicle colour classifier with torchvision transfer learning.
 
     uv run python tools/train_color_classifier.py \

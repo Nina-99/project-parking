@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Build a labelling queue from a signal that is independent of the classifier.
 
     uv run python tools/queue_candidates.py \

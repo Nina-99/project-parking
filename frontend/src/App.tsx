@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Nina
+// SPDX-License-Identifier: LicenseRef-Proprietary
+
 import { Navigate, Route, Routes } from "react-router-dom";
 import { Layout } from "./presentation/components/Layout";
 import { RequireSession } from "./presentation/components/RequireSession";

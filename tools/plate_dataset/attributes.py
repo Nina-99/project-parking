@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Vehicle attribute vocabulary and the labelling queue.
 
 Body type and predominant colour are *semantic* attributes: no deterministic

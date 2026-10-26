@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Physical degradation pipeline: geometry, light, sensor — in that order.
 
 The order is the physics of the capture: the plate has a pose (perspective +

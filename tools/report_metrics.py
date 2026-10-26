@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Render classifier metrics as the tables the thesis needs.
 
     uv run python tools/report_metrics.py \

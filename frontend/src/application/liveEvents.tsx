@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Nina
+// SPDX-License-Identifier: LicenseRef-Proprietary
+
 /** One socket for the whole app: query invalidation plus a short event feed. */
 import {
   createContext,

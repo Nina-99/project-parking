@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """The write use case: what a confirmed gate event does to the database.
 
 No database here. The stores are recorders, so the test can assert the order

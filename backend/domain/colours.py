@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Colour vocabulary shared by the search and the statistics endpoints.
 
 Two decisions live here so both endpoints cannot drift apart.

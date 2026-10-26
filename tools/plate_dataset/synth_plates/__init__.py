@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Synthetic Bolivian license-plate generator.
 
 Renders the national format (1999-present) from text + department letter and

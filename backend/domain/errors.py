@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Domain failures the API has to translate into HTTP.
 
 They are domain errors, not HTTP errors: a session that is not active cannot be

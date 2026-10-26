@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Operational tasks: retention.
 
 Vehicles and sessions are the record of what happened and are kept. Telemetry

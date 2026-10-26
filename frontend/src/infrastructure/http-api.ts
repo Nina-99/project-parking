@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Nina
+// SPDX-License-Identifier: LicenseRef-Proprietary
+
 /** HTTP adapter. The only module that knows the API base path. */
 import type { ApiPort } from "../application/ports";
 import type {

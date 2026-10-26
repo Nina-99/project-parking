@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """The worker handler, exercised without a GPU, a broker or a database."""
 from __future__ import annotations
 

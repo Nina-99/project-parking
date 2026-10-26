@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Interactive labeller for vehicle TYPE and COLOUR, with boxes and suggestions.
 
     uv run python tools/label_type_gui.py \

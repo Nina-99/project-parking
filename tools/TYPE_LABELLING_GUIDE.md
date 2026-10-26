@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: 2026 Nina
+SPDX-License-Identifier: LicenseRef-Proprietary
+-->
+
 # Guía de etiquetado — Tipo de vehículo
 
 Objetivo: que dos anotadores (o vos en dos días distintos) miren el mismo

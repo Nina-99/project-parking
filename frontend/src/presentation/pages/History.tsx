@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Nina
+// SPDX-License-Identifier: LicenseRef-Proprietary
+
 import { useState } from "react";
 import { ArrowUpDown, Search } from "lucide-react";
 import { useHistory } from "../../application/queries";

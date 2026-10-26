@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Nina
+// SPDX-License-Identifier: LicenseRef-Proprietary
+
 import { Link, useParams } from "react-router-dom";
 import { ArrowLeft, Car, ImageOff } from "lucide-react";
 import { useVehicle } from "../../application/queries";

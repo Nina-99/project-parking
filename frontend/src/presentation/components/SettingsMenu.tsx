@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Nina
+// SPDX-License-Identifier: LicenseRef-Proprietary
+
 import { useEffect, useRef, useState } from "react";
 import { Check, Monitor, Moon, Settings, Sun } from "lucide-react";
 import { useTheme, type Theme } from "../theme/ThemeProvider";

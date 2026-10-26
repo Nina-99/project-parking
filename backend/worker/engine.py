@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Vehicle detection and attribute classification, for the worker to call.
 
 One process loads the models once and reuses them: YOLO finds the vehicle, the

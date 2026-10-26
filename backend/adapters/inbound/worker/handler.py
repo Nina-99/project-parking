@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """One frame in, confirmed gate events out.
 
 This module is the body of the Celery task, separated from Celery so it can be

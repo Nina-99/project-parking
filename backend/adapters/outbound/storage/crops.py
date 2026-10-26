@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Store the crop that the incident search shows next to a candidate."""
 from __future__ import annotations
 

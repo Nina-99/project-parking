@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Build a colour dataset from the flat labelling pool.
 
     uv run python tools/build_color_dataset.py \

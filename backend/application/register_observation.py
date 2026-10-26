@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """The single write path: one confirmed gate event becomes one vehicle.
 
 The Celery worker ends up here, so there is one answer to "what happens when a

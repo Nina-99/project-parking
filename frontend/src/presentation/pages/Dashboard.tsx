@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Nina
+// SPDX-License-Identifier: LicenseRef-Proprietary
+
 import { useState } from "react";
 import { Camera, Car, Clock, Timer, TrendingUp } from "lucide-react";
 import {

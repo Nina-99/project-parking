@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Whether a camera is still reporting.
 
 Liveness is derived from the last heartbeat, not stored as a state: a process

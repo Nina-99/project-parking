@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Colour reporting rules.
 
 What gets its own number and what gets aggregated is a published claim, so the

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Live fan-out to the browsers.
 
 The API does not produce gate events; the worker does. This module keeps the

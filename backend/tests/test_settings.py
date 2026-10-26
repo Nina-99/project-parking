@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Settings must load from the .env the project actually ships.
 
 Both failures this guards against were real: the camera list is documented as a

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Incident-search behaviour that does not need the database.
 
 The route itself is a thin query on top of these two functions; the decisions

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Plate dataset extractor.
 
 Two-pass, zone-based extraction of license-plate samples from recorded

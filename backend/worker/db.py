@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Backwards-compatible import for the worker.
 
 The engine lives in the database adapter now, because the API also needs it for

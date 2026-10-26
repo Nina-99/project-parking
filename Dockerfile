@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 FROM python:3.12-slim AS builder
 
 ENV UV_SYSTEM_PYTHON=1 \

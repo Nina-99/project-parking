@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """PaddleOCR plate reader.
 
 Locates the plate inside a vehicle crop and reads it. This is the operational

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """When a failed read means "reconnect", decided without touching a camera."""
 
 from __future__ import annotations

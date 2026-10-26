@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Shared test doubles for the application layer.
 
 They record what the use case asks for, in order, so a test can assert the

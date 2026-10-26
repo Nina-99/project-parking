@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """The full cycle against a real PostgreSQL, with the real migrations.
 
 These tests are skipped when no server is reachable. They are the only place

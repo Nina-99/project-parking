@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """The replay harness: discovery, pairing and command construction."""
 
 from __future__ import annotations

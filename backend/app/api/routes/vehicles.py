@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Vehicle lookup for incident investigation.
 
 The scenario this serves: an operator remembers "a silver vehicle entered around

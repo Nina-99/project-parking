@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Dataset output: two label formats, a manifest and a review bucket.
 
 Layout produced under ``root``::

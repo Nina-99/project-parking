@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Nina
+// SPDX-License-Identifier: LicenseRef-Proprietary
+
 import { useMemo, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { Clock, ImageOff, Search } from "lucide-react";

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """CLI entry point for the plate-dataset extractor.
 
 Implementation lives in the ``plate_dataset`` package; this only forwards the

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Nina
+// SPDX-License-Identifier: LicenseRef-Proprietary
+
 import { Activity, Cpu, Timer } from "lucide-react";
 import { useModelStats } from "../../application/queries";
 import { formatConfidence } from "../../domain/incident";

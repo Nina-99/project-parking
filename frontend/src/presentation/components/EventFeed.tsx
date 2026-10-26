@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Nina
+// SPDX-License-Identifier: LicenseRef-Proprietary
+
 import { Activity } from "lucide-react";
 import { useLiveEvents } from "../../application/liveEvents";
 import { formatClock } from "../../domain/incident";

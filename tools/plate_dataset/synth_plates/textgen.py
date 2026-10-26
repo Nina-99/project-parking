@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Text and department sampling for synthetic plates.
 
 The format split is a domain decision, not a guess: 90% ``NNNNLLL`` (current

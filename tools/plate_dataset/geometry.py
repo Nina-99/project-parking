@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Geometry helpers for zone-based vehicle reasoning.
 
 Everything works in pixel coordinates. ``ZoneModel`` pre-computes the pixel

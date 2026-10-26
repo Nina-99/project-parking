@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Camera liveness: a heartbeat that stops is the only offline signal."""
 from __future__ import annotations
 

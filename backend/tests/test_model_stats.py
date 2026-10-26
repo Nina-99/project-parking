@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Model health is computed from the inference rows, not from a benchmark."""
 from __future__ import annotations
 

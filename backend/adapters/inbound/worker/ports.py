@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """What the worker handler needs from its collaborators.
 
 These are ports of an inbound adapter, not of the domain: they describe the

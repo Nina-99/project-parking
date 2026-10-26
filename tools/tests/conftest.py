@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Make the tool scripts importable when pytest runs from ``software/``.
 
 The extractor tools live under ``tools/`` and import each other as

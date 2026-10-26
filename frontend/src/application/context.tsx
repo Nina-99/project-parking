@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Nina
+// SPDX-License-Identifier: LicenseRef-Proprietary
+
 /** Composition root for the ports. Presentation never imports an adapter. */
 import { createContext, useContext, type ReactNode } from "react";
 import type { ApiPort, EventStream } from "./ports";

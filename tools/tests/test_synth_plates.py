@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Unit tests for the synthetic plate generator.
 
 Fast and headless: small masters, few samples, fixed seeds. What matters here

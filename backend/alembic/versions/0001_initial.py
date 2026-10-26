@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Initial schema: vehicles, parking sessions and raw detections.
 
 Revision ID: 0001_initial

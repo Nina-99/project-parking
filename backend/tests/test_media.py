@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Crops are served by id, and only from inside the image root.
 
 The operator needs the thumbnail next to the candidate; the browser must never

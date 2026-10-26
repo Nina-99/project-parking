@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Nina
+// SPDX-License-Identifier: LicenseRef-Proprietary
+
 /** Query hooks. They talk to the port, never to fetch or a URL. */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { VehicleSearchQuery } from "../domain/types";

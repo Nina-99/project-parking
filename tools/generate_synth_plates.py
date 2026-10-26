@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Generate synthetic Bolivian plate crops.
 
     uv run python tools/generate_synth_plates.py --output /tmp/opencode/synth_demo --count 20

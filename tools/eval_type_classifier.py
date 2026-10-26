@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Evaluate a type (or colour) classifier checkpoint on a dataset's test split.
 
     uv run python tools/eval_type_classifier.py \

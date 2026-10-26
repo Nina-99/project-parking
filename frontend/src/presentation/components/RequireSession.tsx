@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Nina
+// SPDX-License-Identifier: LicenseRef-Proprietary
+
 import type { ReactNode } from "react";
 import { LiveEventsProvider } from "../../application/liveEvents";
 import { useSession } from "../../application/session";

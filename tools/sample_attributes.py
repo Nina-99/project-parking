@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Reduce the vehicle-crop pool to a compact, labellable sample.
 
     # Deployment view (front/rear at the gate) — the default and recommended one

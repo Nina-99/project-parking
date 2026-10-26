@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Frames become tracks, tracks become events -- once each.
 
 These tests exist because the alternative (persist one vehicle per frame) looks

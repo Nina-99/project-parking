@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Nina
+// SPDX-License-Identifier: LicenseRef-Proprietary
+
 /** Pure presentation helpers: no React, no fetch. Easy to test. */
 import type { GateEventMessage, MatchKind, VehicleSearchHit } from "./types";
 

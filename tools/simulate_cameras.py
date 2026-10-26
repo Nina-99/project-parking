@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Replay recorded footage as if it were the live gate cameras.
 
     # see which hours both cameras recorded

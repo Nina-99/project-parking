@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Guard rails for the type/colour training pipelines and the metric summary.
 
 Both tasks used to share one augmentation pipeline, saturation jitter included.
