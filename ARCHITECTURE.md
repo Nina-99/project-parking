@@ -8,21 +8,23 @@ camino de eventos** (Postgres → Redis → WebSocket → cache del navegador).
 ## Camino rápido
 
 ```bash
-# 1. Dependencias y esquema
-docker compose up -d postgres redis
-uv run alembic -c backend/alembic.ini upgrade head
+# Todo el stack local: PostgreSQL 5433, Redis 6379, API 8000, Vite 5173.
+# Aplica las migraciones antes de arrancar la API.
+./scripts/dev.sh up
 
-# 2. Procesos
-uv run celery -A backend.worker.celery_app worker --loglevel=info --concurrency=1
-uv run uvicorn backend.app.main:app --reload
+./scripts/dev.sh status
+./scripts/dev.sh down            # conserva la base
+./scripts/dev.sh down --clean    # borra contenedores y volumen
 
-# 3. Verificación
-curl http://127.0.0.1:8000/health/ready
-uv run pytest -q
+# Alternativa: todo en Docker (PostgreSQL 5433, frontend 8080).
+./scripts/dev.sh compose
+./scripts/dev.sh compose-down
 ```
 
-La UI pide usuario y contraseña: el token vive en una cookie httpOnly y la API
-de lectura no responde sin él.
+El stack del host usa 5433/6379 a propósito: 5432 suele estar ocupado por otra
+base. La UI pide usuario y contraseña (default `operator` / `operator`; cambialo
+en `.env`): el token vive en una cookie httpOnly y la API de lectura no responde
+sin él. Verificación puntual: `curl http://127.0.0.1:8000/health/ready`.
 
 ## Capas
 

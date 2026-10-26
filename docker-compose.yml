@@ -83,7 +83,7 @@ services:
     image: postgres:16
     container_name: parking-postgres
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     env_file:
       - .env
     environment:
@@ -112,7 +112,7 @@ services:
       dockerfile: Dockerfile
     container_name: parking-frontend
     ports:
-      - "80:80"
+      - "${FRONTEND_PORT:-80}:80"
     depends_on:
       - api
     environment:

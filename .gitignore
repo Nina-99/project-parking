@@ -76,3 +76,5 @@ auto.crt
 auto.key
 
 celerybeat-schedule*
+
+.dev/
