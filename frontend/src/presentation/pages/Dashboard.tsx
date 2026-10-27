@@ -19,6 +19,7 @@ import {
   useModelStats,
   useOccupancy,
 } from "../../application/queries";
+import { useSession } from "../../application/session";
 import { formatClock, formatTime } from "../../domain/incident";
 import type { ActiveSession } from "../../domain/types";
 import { CameraTile } from "../components/CameraTile";
@@ -30,9 +31,11 @@ import { StatCard } from "../components/StatCard";
 function ActiveRow({
   session,
   onClose,
+  canClose,
 }: {
   session: ActiveSession;
   onClose: () => void;
+  canClose: boolean;
 }) {
   return (
     <li className="flex items-center justify-between gap-3 border-b border-border px-5 py-3 last:border-0">
@@ -58,9 +61,15 @@ function ActiveRow({
           </p>
           <p className="text-[11px] text-subtle">{session.age_minutes} min</p>
         </div>
-        <button type="button" onClick={onClose} className="btn-secondary px-2.5 py-1.5 text-xs">
-          Cerrar
-        </button>
+        {canClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            className="btn-secondary px-2.5 py-1.5 text-xs"
+          >
+            Cerrar
+          </button>
+        )}
       </div>
     </li>
   );
@@ -72,6 +81,8 @@ export function Dashboard() {
   const daily = useDailyStats(7);
   const cameras = useCameras();
   const model = useModelStats(1);
+  const { user } = useSession();
+  const canClose = user?.role === "admin" || user?.role === "operator";
   const [closing, setClosing] = useState<ActiveSession | null>(null);
 
   const chartData = (daily.data ?? []).map((day) => ({
@@ -189,6 +200,7 @@ export function Dashboard() {
                     key={session.id}
                     session={session}
                     onClose={() => setClosing(session)}
+                    canClose={canClose}
                   />
                 ))}
               </ul>

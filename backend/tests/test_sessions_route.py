@@ -9,8 +9,10 @@ import uuid
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from backend.app.api.auth import require_operator
+from backend.app.api.auth import issue_token, require_operator
 from backend.app.api.dependencies import get_clock, get_publisher, get_uow_factory
+from backend.app.api.routes.sessions import operator_only
+from backend.app.core.config import settings
 from backend.app.main import app
 from backend.domain.errors import SessionNotActiveError, SessionNotFoundError
 from backend.tests.fakes import FakePublisher, FakeUnitOfWork, FixedClock
@@ -24,6 +26,7 @@ def uow() -> FakeUnitOfWork:
 @pytest.fixture
 async def client(uow: FakeUnitOfWork):
     app.dependency_overrides[require_operator] = lambda: "ana"
+    app.dependency_overrides[operator_only] = lambda: ("ana", "operator")
     app.dependency_overrides[get_uow_factory] = lambda: (lambda: uow)
     app.dependency_overrides[get_publisher] = lambda: FakePublisher()
     app.dependency_overrides[get_clock] = lambda: FixedClock()
@@ -98,3 +101,21 @@ async def test_an_anonymous_close_is_rejected() -> None:
         )
 
     assert response.status_code == 401
+
+
+async def test_an_owner_cannot_close_a_session(
+    client: AsyncClient, uow: FakeUnitOfWork,
+) -> None:
+    app.dependency_overrides.pop(operator_only, None)
+    client.cookies.set(
+        settings.AUTH_COOKIE_NAME,
+        issue_token("duenio", "owner"),
+    )
+
+    response = await client.post(
+        f"/api/v1/sessions/{uuid.uuid4()}/close",
+        json={"reason": "manual"},
+    )
+
+    assert response.status_code == 403
+    assert uow.sessions.closed == []

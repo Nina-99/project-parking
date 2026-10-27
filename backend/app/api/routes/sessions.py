@@ -19,11 +19,16 @@ from starlette.concurrency import run_in_threadpool
 from backend.adapters.outbound.bus.redis_publisher import RedisEventPublisher
 from backend.adapters.outbound.db.unit_of_work import SqlAlchemyUnitOfWork
 from backend.adapters.outbound.time import SystemClock
-from backend.app.api.auth import require_operator
+from backend.app.api.auth import require_role
 from backend.app.api.dependencies import get_clock, get_publisher, get_uow_factory
+from backend.app.models.user import UserRole
 from backend.application.close_session import CloseOutcome, close_session
 
 router = APIRouter()
+
+# Closing a session changes the occupancy count: only the people who run the
+# lot may do it. An owner reads reports; it does not correct the record.
+operator_only = require_role(UserRole.OPERATOR, UserRole.ADMIN)
 
 
 class CloseRequest(BaseModel):
@@ -41,7 +46,7 @@ class CloseResponse(BaseModel):
 async def close(
     session_id: uuid.UUID,
     body: CloseRequest,
-    operator: str = Depends(require_operator),
+    actor: tuple[str, str] = Depends(operator_only),
     uow_factory: Callable[[], SqlAlchemyUnitOfWork] = Depends(get_uow_factory),
     publisher: RedisEventPublisher = Depends(get_publisher),
     clock: SystemClock = Depends(get_clock),
@@ -54,7 +59,7 @@ async def close(
         with uow_factory() as uow:
             return close_session(
                 session_id=str(session_id),
-                operator=operator,
+                operator=actor[0],
                 reason=body.reason,
                 uow=uow,
                 publisher=publisher,
