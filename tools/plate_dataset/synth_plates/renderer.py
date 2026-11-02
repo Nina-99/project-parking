@@ -23,11 +23,19 @@ from PIL import Image, ImageDraw, ImageFont
 
 # Physical ratio 305x102, rendered at 2x for a sharp master.
 MASTER_W, MASTER_H = 610, 204
+# Where the number sits, read off the real crops by eye and not by threshold:
+# the glyphs span ~84% of the width and ~52% of the height, with the header band
+# above them. Measuring this with an ink threshold is a trap -- the plate's own
+# frame is ink too, so it reports ~94% x 63% and, taken at face value, pushes the
+# first and last glyph into the border where the perspective warp amputates them.
+GLYPH_WIDTH_FRACTION = 0.84
+GLYPH_HEIGHT_FRACTION = 0.52
+HEADER_H = 46
 # Bolivian particular: blue on white (openvan reports 1852PHD-ish blue).
 # Darkened toward what the recorder actually sees: under gate lighting the
 # sheeting reads gray and the ink near-black, never vivid studio blue.
 BLUE = (11, 47, 110)
-WHITE = (235, 235, 235)
+WHITE = (212, 212, 212)
 
 # Curated on purpose: every entry is a condensed or plain bold sans that could
 # plausibly be a plate die. Exotic faces would teach the model glyph shapes no
@@ -47,7 +55,9 @@ def available_fonts() -> list[str]:
     return [path for path in FONT_CANDIDATES if Path(path).exists()]
 
 
-def _load_font(size: int, family: str | None = None) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
+def _load_font(
+    size: int, family: str | None = None
+) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
     candidates = [family] if family else []
     for path in [*candidates, *available_fonts()]:
         if path and Path(path).exists():
@@ -58,54 +68,122 @@ def _load_font(size: int, family: str | None = None) -> ImageFont.FreeTypeFont |
     return ImageFont.load_default()
 
 
-def _centered(draw: ImageDraw.ImageDraw, cx: float, y: float, text: str,
-              font: ImageFont.FreeTypeFont | ImageFont.ImageFont,
-              fill: tuple[int, int, int]) -> None:
+def _centered(
+    draw: ImageDraw.ImageDraw,
+    cx: float,
+    y: float,
+    text: str,
+    font: ImageFont.FreeTypeFont | ImageFont.ImageFont,
+    fill: tuple[int, int, int],
+) -> None:
     box = draw.textbbox((0, 0), text, font=font, stroke_width=1)
-    draw.text((cx - (box[2] - box[0]) / 2.0 - box[0], y), text, font=font, fill=fill,
-              stroke_width=1, stroke_fill=fill)
+    draw.text(
+        (cx - (box[2] - box[0]) / 2.0 - box[0], y),
+        text,
+        font=font,
+        fill=fill,
+        stroke_width=1,
+        stroke_fill=fill,
+    )
 
 
-def _draw_main_text(img: Image.Image, text: str, rng: random.Random,
-                    family: str | None) -> dict:
-    """Returns the die parameters used, so the manifest can record them."""
+def _fit_font(
+    text: str, family: str | None, target_h: int
+) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
+    """Font whose rendered cap height lands on ``target_h``.
+
+    Measuring and correcting beats a table of sizes per string length: the
+    available faces have different metrics, and the plate number can be six or
+    seven characters.
+    """
+    probe = ImageDraw.Draw(Image.new("RGBA", (8, 8)))
+    size = max(8, int(round(target_h / 0.72)))
+    font = _load_font(size, family)
+    for _ in range(4):
+        box = probe.textbbox((0, 0), text, font=font, stroke_width=1)
+        height = box[3] - box[1]
+        if height <= 0:
+            break
+        corrected = max(8, int(round(size * target_h / height)))
+        if corrected == size:
+            break
+        size = corrected
+        font = _load_font(size, family)
+    return font
+
+
+def _draw_main_text(img: Image.Image, text: str, rng: random.Random, family: str | None) -> dict:
     """Draw the plate number with die-to-die variation.
+
+    Two invariants come from the real crops, not from taste: the glyph band
+    fills ~92% of the width and ~60% of the plate height. An earlier version
+    drew the number at 63% x 29%, which after the same downsampling left the
+    synthetic glyphs half the size of the real ones -- a domain gap the model
+    pays for at every step.
 
     Character spacing matters for CTC: two plates of the same number printed on
     different dies differ in kerning and weight, and a model that only ever sees
     one spacing learns the spacing instead of the glyphs. So each character is
-    placed individually with a jittered gap, and the whole line is stretched
-    slightly. The result is still centred and never leaves the frame.
+    placed individually with a jittered gap, and the line is squeezed to fit.
+    The result is centred and never leaves the frame.
     """
-    size = 96 if len(text) <= 6 else 82
-    font = _load_font(size, family)
+    target_h = int(MASTER_H * GLYPH_HEIGHT_FRACTION)
+    target_w = int(MASTER_W * GLYPH_WIDTH_FRACTION)
+    font = _fit_font(text, family, target_h)
     stroke = rng.choice((0, 1, 1, 2))
     gap = rng.uniform(-2.0, 3.0)
-    squeeze = rng.uniform(0.93, 1.07)
 
-    layer = Image.new("RGBA", (MASTER_W, 130), (0, 0, 0, 0))
-    draw = ImageDraw.Draw(layer)
+    # The layer must be as wide as the line, not as wide as the plate. Sizing it
+    # to MASTER_W and then squeezing clips the first and last glyph before there
+    # is anything to squeeze -- the glyphs were amputated, not compressed.
+    probe = ImageDraw.Draw(Image.new("RGBA", (8, 8)))
     widths = []
     for char in text:
-        box = draw.textbbox((0, 0), char, font=font, stroke_width=stroke)
+        box = probe.textbbox((0, 0), char, font=font, stroke_width=stroke)
         widths.append(box[2] - box[0])
     total = sum(widths) + gap * max(0, len(text) - 1)
-    x = (MASTER_W - total) / 2.0
+    pad = 8
+    layer = Image.new("RGBA", (max(8, int(total) + 2 * pad), target_h * 3), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(layer)
+    x = float(pad)
     for char, width in zip(text, widths, strict=True):
-        draw.text((x, 0), char, font=font, fill=(*BLUE, 255), stroke_width=stroke,
-                  stroke_fill=(*BLUE, 255))
+        draw.text(
+            (x, pad + target_h // 2),
+            char,
+            font=font,
+            fill=(*BLUE, 255),
+            stroke_width=stroke,
+            stroke_fill=(*BLUE, 255),
+        )
         x += width + gap
 
-    if abs(squeeze - 1.0) > 0.01:
-        layer = layer.resize((max(1, int(layer.width * squeeze)), layer.height),
-                             Image.BICUBIC)
-    img.alpha_composite(layer, (int((MASTER_W - layer.width) / 2), 58))
-    return {"font": Path(family).name if family else "default",
-            "stroke": stroke, "gap": round(gap, 3), "squeeze": round(squeeze, 3)}
+    bbox = layer.getbbox()
+    if bbox is None:
+        return {
+            "font": "none",
+            "stroke": stroke,
+            "gap": round(gap, 3),
+            "squeeze": 1.0,
+            "text_bbox": [0, 0, 0, 0],
+        }
+    layer = layer.crop(bbox)
+    squeeze = min(1.0, target_w / layer.width)
+    if squeeze < 0.999:
+        layer = layer.resize((max(1, int(layer.width * squeeze)), layer.height), Image.BICUBIC)
+
+    x0 = int((MASTER_W - layer.width) / 2)
+    y0 = HEADER_H + max(0, (MASTER_H - HEADER_H - layer.height) // 2)
+    img.alpha_composite(layer, (x0, y0))
+    return {
+        "font": Path(family).name if family else "default",
+        "stroke": stroke,
+        "gap": round(gap, 3),
+        "squeeze": round(squeeze, 3),
+        "text_bbox": [x0, y0, x0 + layer.width, y0 + layer.height],
+    }
 
 
-def render_clean(text: str, dept: str,
-                 rng: random.Random | None = None) -> tuple[np.ndarray, dict]:
+def render_clean(text: str, dept: str, rng: random.Random | None = None) -> tuple[np.ndarray, dict]:
     """Draw the sharp master (BGR, ``MASTER_W`` x ``MASTER_H``).
 
     ``rng`` selects the typeface and the die variation. Passing the same rng

@@ -62,7 +62,7 @@ use `tools/view_trajectories.py`.
 | Negatives | Passing vehicles are saved as hard negatives. Disable with `--no-negatives`. |
 | Attributes | Body type and colour are labelled **by a human**, never pseudo-labelled: an automatic labeller would train the classifier on the answer of the rule it is later compared against. Every classified track is queued, passers included. |
 | Vocabulary | Types and colours live in `global.vehicle_types` / `global.vehicle_colors` in `zones_config.json`. They are site-specific and become class/directory names, so renaming a class after labelling invalidates the labels. |
-| Synthetic plates | Clean Bolivian template (blue on white, `BOLIVIA` header, dept sticker) degraded in physical order: geometry → light → sensor, downsampled to the real size distribution (median 96x39). Text 90% `NNNNLLL` / 10% `NNNLLL`; dept all 9 letters with `O` weighted. Train-only, never test. |
+| Synthetic plates | Clean Bolivian template (blue on white, `BOLIVIA` header, dept sticker) with the number filling 84% x 52% of the plate, then degraded in physical order: light wear → geometry → light → sensor. Calibrated against the served crops: brightness 110 vs 101, contrast 37 vs 38, sharpness 277 vs 315, warm cast R/B 1.49 vs 1.55. Text 98.5% `NNNNLLL` / 1.5% `NNNLLL`, number sampled as an integer so a leading zero is impossible; dept all 9 letters with `O` weighted. Train-only, never test. |
 
 ### Output layout
 

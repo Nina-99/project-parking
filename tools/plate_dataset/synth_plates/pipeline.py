@@ -38,8 +38,11 @@ class SynthConfig:
     height_range: tuple[int, int] = (10, 70)
     height_median: int = 39
     o_weight: float = 0.45
-    four_digit_weight: float = 0.90
+    four_digit_weight: float = 0.985
     night_prob: float = 0.35
+    # Almost-intact plates: faint scratches and dirt, never damage that changes
+    # a glyph. 0 disables it, so the wear arm is an ablation, not a default.
+    wear_strength: float = 0.22
     # Parallel workers must not append to one file: interleaved lines would
     # corrupt the manifest. Each worker gets its own shard.
     manifest_name: str = "manifest.jsonl"
@@ -52,6 +55,12 @@ class SynthConfig:
         a second worker -- and a 300k set would not be reproducible from its
         parameters. Seeding from the index makes index -> plate stable, which is
         what lets twelve processes share the work.
+
+        Stable *for a fixed generator revision*. The qualifier is not pedantry:
+        commit 3a3e1cf put the letter I back into textgen, and afterwards the same
+        index produced a different plate. A resume across a code change silently
+        rewrites history; tools/repair_synth_plates.py exists because that is
+        exactly what cost this dataset 33 files.
         """
         return random.Random(self.seed * 1_000_003 + index)
 
@@ -84,21 +93,34 @@ class SynthPipeline:
                 width = _sample_size(rng, *self.config.width_range, self.config.width_median)
                 height = _sample_size(rng, *self.config.height_range, self.config.height_median)
                 master, die = render_clean(text, dept, rng)
-                crop, params = degrade(master, rng, width, height, self.config.night_prob)
+                crop, params = degrade(
+                    master,
+                    rng,
+                    width,
+                    height,
+                    self.config.night_prob,
+                    self.config.wear_strength,
+                )
                 params.update(die)
                 stem = f"synth_{index:06d}"
                 cv2.imwrite(str(img_dir / f"{stem}.jpg"), crop)
                 (lbl_dir / f"{stem}.txt").write_text(text + "\n", encoding="utf-8")
-                fh.write(json.dumps({
-                    "kind": "synth",
-                    "synth": True,
-                    "stem": stem,
-                    "label": text,
-                    "dept": dept,
-                    "width": width,
-                    "height": height,
-                    "params": params,
-                    "ts": datetime.now(UTC).isoformat(),
-                }, ensure_ascii=False) + "\n")
+                fh.write(
+                    json.dumps(
+                        {
+                            "kind": "synth",
+                            "synth": True,
+                            "stem": stem,
+                            "label": text,
+                            "dept": dept,
+                            "width": width,
+                            "height": height,
+                            "params": params,
+                            "ts": datetime.now(UTC).isoformat(),
+                        },
+                        ensure_ascii=False,
+                    )
+                    + "\n"
+                )
                 written += 1
         return written
