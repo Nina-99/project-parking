@@ -88,6 +88,8 @@ dataset/
 | `prepare_ocr_ablation.py` | Deterministic real/synth ablation splits + protocol. |
 | `label_attributes.py` | Interactive body-type and colour labeller (resumable). |
 | `calibrate_zones.py` | Interactive real-time zone calibrator (writes the config). |
+| `label_plate_box_gui.py` | Plate-box review with the CRNN's own 192x48 view, plus `--export-ocr` to cut OCR crops from the verified boxes. |
+| `label_plate_text_gui.py` | Interactive plate-text labeller, prefilled with Paddle's read; records whether each label was accepted or corrected. |
 | `view_trajectories.py` | Headless trajectory viewer (renders a PNG). |
 | `plate_dataset/attributes.py` | Attribute vocabulary, label queue and append-only label store. |
 | `plate_dataset/labelling.py` | Interactive labeller implementation (cv2 window). |
