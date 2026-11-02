@@ -14,6 +14,7 @@ split files it consumes are written by ``tools/prepare_ocr_ablation.py``.
 
 from __future__ import annotations
 
+import hashlib
 import random
 from dataclasses import dataclass
 from pathlib import Path
@@ -91,6 +92,72 @@ def split_by_video(
     return train, test
 
 
+def split_by_plate(
+    stems_by_plate: dict[str, list[str]],
+    test_fraction: float = 0.2,
+    seed: int = 7,
+    max_per_plate: int = 0,
+) -> tuple[list[str], list[str]]:
+    """Split stems into train/test so no plate string appears on both sides.
+
+    A session split keeps the same vehicle on one side but still puts the same
+    *plate* on both: half the crops in this dataset share their string with
+    another recording block. For a recogniser that inflates exact-match, because
+    the test then asks the model to reproduce a sequence it already memorised.
+    Plate identity is the tighter constraint and the one that matters.
+
+    Groups are ordered by a hash of (seed, plate), not by insertion order, so
+    the split is reproducible and stable as crops are added: a new crop of an
+    existing plate joins its plate's side, and never reshuffles the rest.
+
+    ``max_per_plate`` caps how many crops of one plate reach the test. Without
+    it a single car that crossed the gate thirty times accounts for a tenth of
+    the test set, and the exact-match becomes a statement about that car. The
+    crops left out are dropped, not moved to train: the same plate must never
+    sit on both sides.
+    """
+    ordered = sorted(
+        stems_by_plate,
+        key=lambda plate: hashlib.sha256(f"{seed}:{plate}".encode()).hexdigest(),
+    )
+
+    def kept(plate: str) -> list[str]:
+        group = sorted(stems_by_plate[plate])
+        return group[:max_per_plate] if max_per_plate else group
+
+    total = sum(len(kept(plate)) for plate in ordered)
+    target = test_fraction * total
+    test_plates: set[str] = set()
+    counted = 0
+    for plate in ordered:
+        if counted + len(kept(plate)) <= target:
+            test_plates.add(plate)
+            counted += len(kept(plate))
+    train = [s for p_ in ordered if p_ not in test_plates for s in stems_by_plate[p_]]
+    test = [s for p_ in ordered if p_ in test_plates for s in kept(p_)]
+    return train, test
+
+
+def collect_real_plates_by_text(root: Path) -> dict[str, list[str]]:
+    """Map plate text -> stems for every clean real crop (synth excluded)."""
+    base = Path(root) / "plates"
+    img_dir = base / "images"
+    lbl_dir = base / "labels"
+    by_plate: dict[str, list[str]] = {}
+    if not img_dir.exists():
+        return by_plate
+    for image in sorted(img_dir.glob("**/*.jpg")):
+        if "synth" in image.relative_to(img_dir).parts:
+            continue
+        label = lbl_dir / image.relative_to(img_dir).with_suffix(".txt")
+        if not label.exists():
+            continue
+        text = label.read_text(encoding="utf-8").strip()
+        if text:
+            by_plate.setdefault(text, []).append(image.stem)
+    return by_plate
+
+
 def collect_real_plates(root: Path) -> dict[str, list[str]]:
     """Map video -> stems for the clean real plates (excludes synth)."""
     base = Path(root) / "plates"
@@ -103,7 +170,8 @@ def collect_real_plates(root: Path) -> dict[str, list[str]]:
         if not video_dir.is_dir() or video_dir.name == "synth":
             continue
         stems = [
-            p.stem for p in sorted(video_dir.glob("*.jpg"))
+            p.stem
+            for p in sorted(video_dir.glob("*.jpg"))
             if (lbl_dir / video_dir.name / f"{p.stem}.txt").exists()
         ]
         if stems:
