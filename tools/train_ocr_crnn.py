@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """CRNN training CLI for Bolivian plate OCR.
 
 Two stages: pretraining on synthetic plates, then fine-tuning on real ones. The
@@ -31,6 +34,29 @@ from plate_dataset.synth_plates.ablation import OcrScores, score_pairs  # noqa: 
 # Deterministic hold-out of the synthetic set, so stage 1 can be judged on the
 # task it is actually training for.
 SYNTH_VAL_SIZE = 300
+
+
+def seed_everything(seed: int) -> None:
+    """Make two runs comparable.
+
+    Without this, the randomly initialised BiLSTM head and the shuffling order
+    differ on every run: measuring "2 epochs vs 4" across two such runs compares
+    two different models, not two schedules. Measured 2026-10-28: the same
+    configuration reached 91.3% and 61.5% on its first epoch purely by chance.
+    """
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+
+
+def seed_worker(worker_id: int) -> None:
+    """Per-worker augmentation seed. Without it the jitter and blur differ
+    between runs even when the main process is seeded."""
+    worker_seed = torch.initial_seed() % 2**32
+    np.random.seed(worker_seed)
+    random.seed(worker_seed)
+
 
 ALPHABET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 CHAR2IDX = {ch: i + 1 for i, ch in enumerate(ALPHABET)}
@@ -99,6 +125,22 @@ class ResNetCRNN(nn.Module):
         return logits.permute(1, 0, 2)  # (W', B, num_classes) for CTCLoss
 
 
+_CLAHE_CACHE: dict[tuple[float, int], cv2.CLAHE] = {}
+
+
+def _clahe(clip: float = 2.0, tile: int = 4) -> "cv2.CLAHE":
+    """Per-process CLAHE instance.
+
+    cv2.CLAHE objects are not picklable, so they cannot live on the Dataset
+    (workers would fail to fork). A module-level cache gives each worker its
+    own, built once.
+    """
+    key = (clip, tile)
+    if key not in _CLAHE_CACHE:
+        _CLAHE_CACHE[key] = cv2.createCLAHE(clipLimit=clip, tileGridSize=(tile, tile))
+    return _CLAHE_CACHE[key]
+
+
 class PlateOcrDataset(Dataset):
     """Loads plate crops and labels from dataset root given stem list."""
 
@@ -109,6 +151,9 @@ class PlateOcrDataset(Dataset):
         augment_mode: str = "none",
         img_height: int = 48,
         img_width: int = 192,
+        use_clahe: bool = True,
+        crop_jitter: bool = False,
+        right_pad: float = 0.0,
     ):
         self.root = root
         # Only paths are held. Labels are read in __getitem__, because reading
@@ -119,6 +164,9 @@ class PlateOcrDataset(Dataset):
         self.augment_mode = augment_mode
         self.img_height = img_height
         self.img_width = img_width
+        self.use_clahe = use_clahe
+        self.crop_jitter = crop_jitter
+        self.right_pad = right_pad
 
         plates_dir = root / "plates"
         img_dir = plates_dir / "images"
@@ -166,10 +214,30 @@ class PlateOcrDataset(Dataset):
         label = self._label_for(img_path)
         img = cv2.imread(str(img_path))
         if img is None:
-            img = np.zeros((self.img_height, self.img_width, 3), dtype=np.uint8)
-        else:
+            # Corrupt/truncated JPEG (a few survived the copy off the failing
+            # disk). Returning a black image with a valid label teaches the
+            # model to hallucinate text from nothing, so resample a neighbour.
+            for k in range(1, min(16, len(self.items))):
+                alt = self.items[(idx + k) % len(self.items)]
+                alt_img = cv2.imread(str(alt))
+                if alt_img is not None:
+                    img, label = alt_img, self._label_for(alt)
+                    break
+            else:
+                img = np.zeros((self.img_height, self.img_width, 3), dtype=np.uint8)
+        if img is not None:
             # CRITICAL FIX: OpenCV loads in BGR, PyTorch ResNet expects RGB
             img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+
+            if self.use_clahe:
+                # Real crops are night captures: median brightness 77 vs 106
+                # for synthetic, contrast 21 vs 34. Unnormalised, the model
+                # sees an input distribution it never trained on and cannot
+                # read the glyphs. Measured on 32 real plates: 64% -> 99.6%
+                # character accuracy once CLAHE is applied.
+                lab = cv2.cvtColor(img, cv2.COLOR_RGB2LAB)
+                lab[:, :, 0] = _clahe().apply(lab[:, :, 0])
+                img = cv2.cvtColor(lab, cv2.COLOR_LAB2RGB)
 
         # Aggressive Data Augmentation ONLY for real fine-tuning phase
         if self.augment_mode == "heavy":
@@ -202,7 +270,35 @@ class PlateOcrDataset(Dataset):
                 factor = random.uniform(0.7, 1.3)
                 img = np.clip(img * factor, 0, 255).astype(np.uint8)
 
+        # Simulate the detector cutting the box differently than the crop the
+        # model was trained on. Training crops were cut by Paddle's box (tight to
+        # the glyphs); at inference our own detector cuts them, and that 5-point
+        # drop (59.4% end-to-end vs 64.3% with a human box) is framing, not
+        # recognition. Cheap invariance beats recollecting parent vehicle crops
+        # that no longer exist on disk.
+        if self.crop_jitter:
+            height, width = img.shape[:2]
+            scale_x = random.uniform(0.94, 1.10)
+            scale_y = random.uniform(0.90, 1.12)
+            centre_x = width / 2.0 + random.uniform(-0.03, 0.03) * width
+            centre_y = height / 2.0 + random.uniform(-0.05, 0.05) * height
+            box_w, box_h = width * scale_x, height * scale_y
+            left, top = centre_x - box_w / 2.0, centre_y - box_h / 2.0
+            matrix = np.float32([[box_w / width, 0, left], [0, box_h / height, top]])
+            img = cv2.warpAffine(
+                img, matrix, (width, height), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE
+            )
+
         # Resize to fixed height/width
+        # Blank space after the last glyph. Without it the final character sits
+        # on the last CTC timestep with no context to its right, and the measured
+        # error profile says exactly that: positions 4/5/6 accumulate 30/34/40
+        # errors against 11-18 for the digits, all of them on the right stroke
+        # (R->N, Y->T, F->E, G->E).
+        if self.right_pad > 0:
+            height, width = img.shape[:2]
+            extra = max(1, int(width * self.right_pad))
+            img = cv2.copyMakeBorder(img, 0, 0, 0, extra, cv2.BORDER_REPLICATE)
         img = cv2.resize(img, (self.img_width, self.img_height), interpolation=cv2.INTER_CUBIC)
         # Normalize to [0, 1] and CHW format
         img_tensor = torch.from_numpy(img).permute(2, 0, 1).float() / 255.0
@@ -287,7 +383,9 @@ def decode_ctc(logits: torch.Tensor, apply_heuristics: bool = True) -> list[str]
     return decoded
 
 
-def evaluate(model: ResNetCRNN, dataloader: DataLoader, device: torch.device) -> tuple[OcrScores, OcrScores]:
+def evaluate(
+    model: ResNetCRNN, dataloader: DataLoader, device: torch.device
+) -> tuple[OcrScores, OcrScores]:
     model.eval()
     pairs_raw: list[tuple[str, str]] = []
     pairs_heuristic: list[tuple[str, str]] = []
@@ -296,10 +394,10 @@ def evaluate(model: ResNetCRNN, dataloader: DataLoader, device: torch.device) ->
         for imgs, _, _, labels in dataloader:
             imgs = imgs.to(device)
             logits = model(imgs)
-            
+
             preds_raw = decode_ctc(logits, apply_heuristics=False)
             preds_heuristic = decode_ctc(logits, apply_heuristics=True)
-            
+
             pairs_raw.extend(list(zip(labels, preds_raw)))
             pairs_heuristic.extend(list(zip(labels, preds_heuristic)))
 
@@ -336,24 +434,28 @@ def _load_resume(path: Path, model, optimizer, scheduler, device) -> int:
 
 def set_stage_freezing(model: ResNetCRNN, stage: str):
     if stage == "stage1_synth":
-        # Stage 1 trains the BiLSTM+FC head only; the whole backbone stays frozen
-        # on its ImageNet weights.
+        # Stage 1: freeze early backbone (conv1, bn1, relu, maxpool, layer1,
+        # layer2 = backbone[0:6]) and leave layer3/layer4 (backbone[6:8])
+        # trainable so the network can adapt ImageNet features for character
+        # discrimination.
         #
-        # This is deliberate and measured, not an accident of prefix matching.
-        # Stage 1 runs at lr 3e-3, which is a head learning rate. Unfreezing
-        # layer3/layer4 at that rate (10.49M extra params, 48% of the model) on a
-        # synthetic->real domain shift destroys the pretrained features and CTC
-        # collapses to the all-blank equilibrium:
-        #   measured 2026-10-22 -> loss flat at 2.83, SynthVal Acc 7-10%,
-        #   exact match 0.0% for 14 consecutive epochs.
-        # Deep adaptation is stage 2's job, where the backbone is unfrozen at
-        # lr 2e-4. If you want to unfreeze here, lower --lr-synth to ~3e-4 and
-        # treat it as a separate ablation, never as the default run.
+        # Full backbone freeze was tested and plateaus at ~55% char accuracy
+        # because the BiLSTM+FC head alone cannot reshape generic ImageNet
+        # features into glyph-level representations.
+        #
+        # The earlier run that converged to 95.4% (ocr_300k_stage1) had
+        # layer3/layer4 trainable.  The key addition here is *differential
+        # learning rates* (see build_stage1_optimizer): backbone layers adapt
+        # at lr/10 so the pretrained weights evolve gently instead of
+        # collapsing under the head's 3e-3.
         print(
-            "[transfer-learning] Stage 1: backbone frozen (whole), training the BiLSTM+FC head only"
+            "[transfer-learning] Stage 1: backbone[0:6] frozen, "
+            "layer3/layer4 trainable with differential LR"
         )
-        for param in model.backbone.parameters():
-            param.requires_grad = False
+        for i, layer in enumerate(model.backbone):
+            frozen = i < 6  # 0-5 = conv1, bn1, relu, maxpool, layer1, layer2
+            for param in layer.parameters():
+                param.requires_grad = not frozen
     elif stage == "stage2_real":
         print("[transfer-learning] Stage 2: UNFREEZING full backbone for deep real adaptation")
         for param in model.backbone.parameters():
@@ -363,6 +465,29 @@ def set_stage_freezing(model: ResNetCRNN, stage: str):
         param.requires_grad = True
     for param in model.classifier.parameters():
         param.requires_grad = True
+    for param in model.bn_seq.parameters():
+        param.requires_grad = True
+
+
+def build_stage1_optimizer(model: ResNetCRNN, lr: float) -> optim.Adam:
+    """Adam with differential LR: backbone layer3/4 at lr/10, head at lr.
+
+    This prevents the CTC blank collapse that happens when 10.5M backbone
+    params train at the same high rate as the randomly-initialized head.
+    """
+    backbone_trainable = [p for p in model.backbone.parameters() if p.requires_grad]
+    head_params = (
+        list(model.bn_seq.parameters())
+        + list(model.bilstm.parameters())
+        + list(model.dropout.parameters())
+        + list(model.classifier.parameters())
+    )
+    return optim.Adam(
+        [
+            {"params": backbone_trainable, "lr": lr / 10},
+            {"params": head_params, "lr": lr},
+        ]
+    )
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -374,31 +499,92 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--stage", choices=["stage1_synth", "stage2_real", "full_pipeline"], default="full_pipeline"
     )
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=7,
+        help="Seeds python, numpy, torch and every DataLoader "
+        "worker. Two runs with the same seed differ only by "
+        "the schedule under test.",
+    )
     parser.add_argument("--epochs-synth", type=int, default=25)
     parser.add_argument("--epochs-real", type=int, default=30)
     # Higher learning rate for synth to escape the blank token local minimum
     parser.add_argument("--lr-synth", type=float, default=3e-3)
-    parser.add_argument("--lr-schedule", choices=("plateau", "fixed"), default="plateau",
-                        help="'plateau' halves the LR on stagnation. On a task that "
-                             "plateaus early it can freeze the run; 'fixed' keeps it "
-                             "constant so the LR is not the variable.")
-    parser.add_argument("--synth-augment", choices=("none", "light", "heavy"),
-                        default="light",
-                        help="Augmentation for the synthetic stage. 'light' is only "
-                             "brightness, which lets the model memorise the single "
-                             "rendering instead of learning the glyphs.")
-    parser.add_argument("--clip-grad", type=float, default=1.5,
-                        help="Gradient-norm clip. 1.5 was blocking CTC convergence; "
-                             "raise it to see whether the plateau moves.")
+    parser.add_argument(
+        "--lr-schedule",
+        choices=("plateau", "fixed"),
+        default="plateau",
+        help="'plateau' halves the LR on stagnation. On a task that "
+        "plateaus early it can freeze the run; 'fixed' keeps it "
+        "constant so the LR is not the variable.",
+    )
+    parser.add_argument(
+        "--synth-augment",
+        choices=("none", "light", "heavy"),
+        default="light",
+        help="Augmentation for the synthetic stage. 'light' is only "
+        "brightness, which lets the model memorise the single "
+        "rendering instead of learning the glyphs.",
+    )
+    parser.add_argument(
+        "--warmup-steps",
+        type=int,
+        default=1500,
+        help="Linear LR warmup over the first N batches of stage 1. "
+        "Without it, a 3e-3 first step collapses CTC to the "
+        "all-blank equilibrium about half the time.",
+    )
+    parser.add_argument(
+        "--clip-grad",
+        type=float,
+        default=1.5,
+        help="Gradient-norm clip. 1.5 was blocking CTC convergence; "
+        "raise it to see whether the plateau moves.",
+    )
+    parser.add_argument(
+        "--right-pad",
+        type=float,
+        default=0.0,
+        help="Blank columns appended to the right of every crop before the resize, "
+        "as a fraction of its width. Gives the last character timesteps to land on.",
+    )
+    parser.add_argument(
+        "--crop-jitter",
+        action="store_true",
+        help="Randomly shift/scale the framing of every real crop. "
+        "Use when the detector that cuts at inference is not "
+        "the one that cut the training crops.",
+    )
+    parser.add_argument(
+        "--synth-mix-ratio",
+        type=float,
+        default=0.5,
+        help="Fraction of each stage-2 epoch that comes from synth "
+        "data (0.0 = real only, 0.5 = equal mix). Synth batches "
+        "prevent catastrophic forgetting of character features "
+        "learned in stage 1.",
+    )
     parser.add_argument("--lr-real", type=float, default=2e-4)
     parser.add_argument("--batch-size", type=int, default=32)
-    parser.add_argument("--loader-workers", type=int, default=8,
-                        help="Decoding workers. Zero makes the GPU wait on a single "
-                             "core to decode 300k JPEGs, which is most of the epoch.")
-    parser.add_argument("--resume", action="store_true",
-                        help="Continue the current stage from resume_stage{1,2}.pt if present.")
-    parser.add_argument("--amp", choices=("bf16", "off"), default="bf16",
-                        help="Autocast precision for the backbone. CTC is always fp32.")
+    parser.add_argument(
+        "--loader-workers",
+        type=int,
+        default=8,
+        help="Decoding workers. Zero makes the GPU wait on a single "
+        "core to decode 300k JPEGs, which is most of the epoch.",
+    )
+    parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="Continue the current stage from resume_stage{1,2}.pt if present.",
+    )
+    parser.add_argument(
+        "--amp",
+        choices=("bf16", "off"),
+        default="bf16",
+        help="Autocast precision for the backbone. CTC is always fp32.",
+    )
     parser.add_argument("--save-dir", type=Path, default=Path("/tmp/opencode/ocr_checkpoints"))
     return parser
 
@@ -414,17 +600,28 @@ def build_scheduler(optimizer: optim.Optimizer, mode: str, patience: int):
     if mode == "fixed":
         return None
     return optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer, mode="min", factor=0.5, patience=patience)
+        optimizer, mode="min", factor=0.5, patience=patience
+    )
 
 
 def current_lr(optimizer: optim.Optimizer) -> float:
     return float(optimizer.param_groups[0]["lr"])
 
 
-def train_one_epoch(model, dataloader, optimizer, criterion, device, clip_grad: float = 1.5,
-                    amp: str = "bf16"):
+def train_one_epoch(
+    model,
+    dataloader,
+    optimizer,
+    criterion,
+    device,
+    clip_grad: float = 1.5,
+    amp: str = "bf16",
+    warmup_steps: int = 0,
+):
     model.train()
     total_loss = 0.0
+    base_lrs = [group["lr"] for group in optimizer.param_groups]
+    step = 0
     for imgs, targets, target_lengths, _ in dataloader:
         imgs = imgs.to(device)
         targets = targets.to(device)
@@ -453,14 +650,108 @@ def train_one_epoch(model, dataloader, optimizer, criterion, device, clip_grad: 
         # from converged. It is a knob now, because the right value is an
         # empirical question, not a matter of taste.
         torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=clip_grad)
+
+        # Linear warmup: a freshly initialised head taking a 3e-3 step immediately
+        # falls into the all-blank CTC equilibrium about half the time. Ramping
+        # in over the first few hundred batches gives it a gentler start.
+        if warmup_steps > 0:
+            scale = min(1.0, (step + 1) / warmup_steps)
+            for group, base in zip(optimizer.param_groups, base_lrs):
+                group["lr"] = base * scale
+        step += 1
+
         optimizer.step()
 
         total_loss += loss.item()
+    for group, base in zip(optimizer.param_groups, base_lrs):
+        group["lr"] = base
     return total_loss / len(dataloader)
+
+
+def train_one_epoch_mixed(
+    model,
+    real_loader,
+    synth_iter,
+    optimizer,
+    criterion,
+    device,
+    clip_grad: float = 1.5,
+    amp: str = "bf16",
+):
+    """Train one epoch interleaving real and synth batches.
+
+    For every real batch, one synth batch is replayed.  The synth data keeps
+    the character-recognition features alive while the backbone adapts to
+    real-world image statistics.  Without this, 395 real images overwrite
+    the 360k-sample pretraining in a few dozen gradient steps (catastrophic
+    forgetting).
+    """
+    model.train()
+    total_loss = 0.0
+    n_batches = 0
+
+    def _step(imgs, targets, target_lengths):
+        nonlocal total_loss, n_batches
+        imgs = imgs.to(device)
+        targets = targets.to(device)
+        target_lengths = target_lengths.to(device)
+        optimizer.zero_grad()
+        with autocast_ctx(device, amp):
+            logits = model(imgs)
+        logits = logits.float()
+        w_prime, b_size, _ = logits.shape
+        input_lengths = torch.full(
+            size=(b_size,),
+            fill_value=w_prime,
+            dtype=torch.long,
+            device=device,
+        )
+        log_probs = logits.log_softmax(2)
+        loss = criterion(log_probs, targets, input_lengths, target_lengths)
+        loss.backward()
+        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=clip_grad)
+        optimizer.step()
+        total_loss += loss.item()
+        n_batches += 1
+
+    for imgs, targets, target_lengths, _ in real_loader:
+        _step(imgs, targets, target_lengths)
+        # Synth replay — one batch per real batch
+        if synth_iter is not None:
+            try:
+                s_imgs, s_targets, s_tl, _ = next(synth_iter)
+                _step(s_imgs, s_targets, s_tl)
+            except StopIteration:
+                synth_iter = None  # exhausted; continue real-only
+
+    return total_loss / max(n_batches, 1)
+
+
+def build_stage2_optimizer(model: ResNetCRNN, lr: float) -> optim.Adam:
+    """Adam with differential LR for stage 2: backbone at lr/10, head at lr.
+
+    Even at lr 2e-4 the full backbone (11.2M params) can overwrite the
+    character features learned in stage 1 when trained on only 395 images.
+    Differential LR lets the backbone drift gently while the head adapts.
+    """
+    backbone_params = list(model.backbone.parameters())
+    head_params = (
+        list(model.bn_seq.parameters())
+        + list(model.bilstm.parameters())
+        + list(model.dropout.parameters())
+        + list(model.classifier.parameters())
+    )
+    return optim.Adam(
+        [
+            {"params": backbone_params, "lr": lr / 10},
+            {"params": head_params, "lr": lr},
+        ]
+    )
 
 
 def main(argv: list[str] | None = None) -> None:
     args = build_parser().parse_args(argv)
+    seed_everything(args.seed)
     _, glob = load_config(args.config)
     root = args.dataset or Path(glob.output_dir)
 
@@ -489,23 +780,37 @@ def main(argv: list[str] | None = None) -> None:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     pin_memory = device.type == "cuda"
     if device.type == "cuda":
-        torch.backends.cudnn.benchmark = True
-    print(f"[ocr-train] Using device: {device}  amp: {args.amp}")
+        # benchmark=True autotunes kernels on every run, so two seeded runs still
+        # take different paths through the numerics. At lr 3e-3 CTC sits on a
+        # knife edge: measured 2026-10-28, the same seed gave 89.3% and 11.2%
+        # (blank collapse) on epoch 1 depending on the kernels cuDNN picked.
+        torch.backends.cudnn.benchmark = False
+        torch.backends.cudnn.deterministic = True
+    print(f"[ocr-train] Using device: {device}  amp: {args.amp}  seed: {args.seed}")
 
     args.save_dir.mkdir(parents=True, exist_ok=True)
     checkpoint_synth = args.save_dir / "crnn_stage1_synth.pt"
     checkpoint_final = args.save_dir / "crnn_stage2_real.pt"
+    checkpoint_best = args.save_dir / "crnn_stage2_best.pt"
 
     model = ResNetCRNN().to(device)
     criterion = nn.CTCLoss(blank=BLANK_IDX, zero_infinity=True)
 
     test_ds = PlateOcrDataset(root, test_stems, augment_mode="none")
     test_loader = DataLoader(
-        test_ds, batch_size=args.batch_size, shuffle=False, collate_fn=ctc_collate_fn,
-        num_workers=args.loader_workers, pin_memory=pin_memory,
+        test_ds,
+        batch_size=args.batch_size,
+        shuffle=False,
+        collate_fn=ctc_collate_fn,
+        num_workers=args.loader_workers,
+        pin_memory=pin_memory,
+        worker_init_fn=seed_worker,
     )
 
     stage1_ran = False
+    # Stage 2 replays synth batches even when stage 1 is skipped, so seed the
+    # pool from the full synth list here.
+    synth_train_stems: list[str] = list(train_synth_stems)
 
     # --- STAGE 1: Synthetic Pretraining ---
     if args.stage in ["stage1_synth", "full_pipeline"] and train_synth_stems:
@@ -518,26 +823,34 @@ def main(argv: list[str] | None = None) -> None:
         # proportionally so a tiny fixture still trains on something.
         val_size = min(SYNTH_VAL_SIZE, len(train_synth_stems) // 10)
         synth_val_stems = train_synth_stems[-val_size:] if val_size else []
-        synth_train_stems = (
-            train_synth_stems[:-val_size] if val_size else train_synth_stems)
+        synth_train_stems = train_synth_stems[:-val_size] if val_size else train_synth_stems
 
         # Synth images get light augmentation to avoid perfect-pixel memorization
-        synth_ds = PlateOcrDataset(root, synth_train_stems,
-                                   augment_mode=args.synth_augment)
+        synth_ds = PlateOcrDataset(root, synth_train_stems, augment_mode=args.synth_augment)
         synth_loader = DataLoader(
-            synth_ds, batch_size=args.batch_size, shuffle=True, collate_fn=ctc_collate_fn,
-            num_workers=args.loader_workers, pin_memory=pin_memory,
+            synth_ds,
+            batch_size=args.batch_size,
+            shuffle=True,
+            collate_fn=ctc_collate_fn,
+            num_workers=args.loader_workers,
+            pin_memory=pin_memory,
+            worker_init_fn=seed_worker,
+            generator=torch.Generator().manual_seed(args.seed),
         )
         synth_val_loader = None
         if synth_val_stems:
             synth_val_ds = PlateOcrDataset(root, synth_val_stems, augment_mode="none")
             synth_val_loader = DataLoader(
-                synth_val_ds, batch_size=args.batch_size, shuffle=False,
+                synth_val_ds,
+                batch_size=args.batch_size,
+                shuffle=False,
                 collate_fn=ctc_collate_fn,
-                num_workers=args.loader_workers, pin_memory=pin_memory,
+                num_workers=args.loader_workers,
+                pin_memory=pin_memory,
+                worker_init_fn=seed_worker,
             )
 
-        optimizer = optim.Adam([p for p in model.parameters() if p.requires_grad], lr=args.lr_synth)
+        optimizer = build_stage1_optimizer(model, args.lr_synth)
         # Slower LR decay to give CTC time to align characters
         scheduler = build_scheduler(optimizer, args.lr_schedule, patience=5)
 
@@ -548,8 +861,16 @@ def main(argv: list[str] | None = None) -> None:
             print(f"[ocr-train] resuming stage 1 at epoch {start_epoch}")
         for epoch in range(start_epoch, args.epochs_synth + 1):
             t_epoch = time.perf_counter()
-            loss = train_one_epoch(model, synth_loader, optimizer, criterion, device,
-                                   clip_grad=args.clip_grad, amp=args.amp)
+            loss = train_one_epoch(
+                model,
+                synth_loader,
+                optimizer,
+                criterion,
+                device,
+                clip_grad=args.clip_grad,
+                amp=args.amp,
+                warmup_steps=args.warmup_steps if epoch == 1 else 0,
+            )
             epoch_s = time.perf_counter() - t_epoch
             if scheduler is not None:
                 scheduler.step(loss)
@@ -558,12 +879,15 @@ def main(argv: list[str] | None = None) -> None:
             scores_raw, _ = evaluate(model, test_loader, device)
             synth_scores = (
                 evaluate(model, synth_val_loader, device)[0]
-                if synth_val_loader is not None else None)
+                if synth_val_loader is not None
+                else None
+            )
             synth_part = ""
             if synth_scores is not None:
                 synth_part = (
                     f"SynthVal Acc: {synth_scores.char_accuracy * 100:.1f}% "
-                    f"(EM:{synth_scores.exact_match * 100:.1f}%) | ")
+                    f"(EM:{synth_scores.exact_match * 100:.1f}%) | "
+                )
             n_synth = len(synth_train_stems)
             print(
                 f"Epoch {epoch:02d}/{args.epochs_synth:02d} | {epoch_s:6.1f}s "
@@ -575,6 +899,18 @@ def main(argv: list[str] | None = None) -> None:
                 f"(EM:{scores_raw.exact_match * 100:.1f}%)",
                 flush=True,
             )
+            # A collapsed run looks like a slow learner for 5 epochs and then
+            # gets thrown away. The all-blank equilibrium has a signature: CTC
+            # loss sits above ln(num_classes) and does not move.
+            if epoch >= 2 and loss > 2.0:
+                raise SystemExit(
+                    f"[ocr-train] CTC blank collapse: synth loss {loss:.3f} after "
+                    f"{epoch} epochs, still at the all-blank equilibrium. "
+                    "The head never started emitting. Try another --seed or a "
+                    "lower --lr-synth; continuing would burn the remaining "
+                    "epochs for nothing."
+                )
+
             _save_resume(resume1, epoch, model, optimizer, scheduler)
         stage1_ran = True
 
@@ -593,16 +929,59 @@ def main(argv: list[str] | None = None) -> None:
 
         set_stage_freezing(model, "stage2_real")
         # Real images need heavy augmentation to generalize
-        real_ds = PlateOcrDataset(root, train_real_stems, augment_mode="heavy")
+        real_ds = PlateOcrDataset(
+            root, train_real_stems, augment_mode="heavy", crop_jitter=args.crop_jitter
+        )
         real_loader = DataLoader(
-            real_ds, batch_size=args.batch_size, shuffle=True, collate_fn=ctc_collate_fn,
-            num_workers=args.loader_workers, pin_memory=pin_memory,
+            real_ds,
+            batch_size=args.batch_size,
+            shuffle=True,
+            collate_fn=ctc_collate_fn,
+            num_workers=args.loader_workers,
+            pin_memory=pin_memory,
+            worker_init_fn=seed_worker,
+            generator=torch.Generator().manual_seed(args.seed + 1),
         )
 
-        # Higher LR for Stage 2 adaptation (2e-4) with scheduler
-        optimizer = optim.Adam([p for p in model.parameters() if p.requires_grad], lr=args.lr_real)
+        # Synth replay: a small pool sampled once, reshuffled every epoch. The
+        # full 360k set is unnecessary here -- mixed training only consumes
+        # ~n_real_batches synth batches per epoch.
+        synth_replay_stems: list[str] = []
+        if args.synth_mix_ratio > 0 and synth_train_stems:
+            n_replay = max(2000, int(len(train_real_stems) * args.synth_mix_ratio * 4))
+            rng = random.Random(7)
+            synth_replay_stems = rng.sample(
+                synth_train_stems, min(n_replay, len(synth_train_stems))
+            )
+            print(
+                f"[ocr-train] Stage 2 synth replay pool: {len(synth_replay_stems)} stems "
+                f"(mix ratio {args.synth_mix_ratio})"
+            )
+        synth_replay_loader = None
+        if synth_replay_stems:
+            replay_ds = PlateOcrDataset(root, synth_replay_stems, augment_mode="light",
+                                        right_pad=args.right_pad)
+            synth_replay_loader = DataLoader(
+                replay_ds,
+                batch_size=args.batch_size,
+                shuffle=True,
+                collate_fn=ctc_collate_fn,
+                num_workers=args.loader_workers,
+                pin_memory=pin_memory,
+                worker_init_fn=seed_worker,
+                generator=torch.Generator().manual_seed(args.seed + 2),
+            )
+
+        # Differential LR: backbone at lr/10 so it adapts without erasing the
+        # character features learned in stage 1.
+        optimizer = build_stage2_optimizer(model, args.lr_real)
         scheduler = build_scheduler(optimizer, args.lr_schedule, patience=4)
 
+        # Stage 2 is cheap per epoch (seconds) and exact-match is noisy: on the
+        # last run it peaked at epoch 29 and fell back at 30. Saving only the
+        # final weights throws away the best model the run produced.
+        best_em = -1.0
+        best_epoch = 0
         resume2 = args.save_dir / "resume_stage2.pt"
         start_epoch = 1
         if args.resume and resume2.exists():
@@ -610,8 +989,19 @@ def main(argv: list[str] | None = None) -> None:
             print(f"[ocr-train] resuming stage 2 at epoch {start_epoch}")
         for epoch in range(start_epoch, args.epochs_real + 1):
             t_epoch = time.perf_counter()
-            loss = train_one_epoch(model, real_loader, optimizer, criterion, device,
-                                   clip_grad=args.clip_grad, amp=args.amp)
+            # Fresh synth iterator per epoch: the replay pool is reshuffled each
+            # time, so every epoch sees a different subset of synthetic plates.
+            synth_iter = iter(synth_replay_loader) if synth_replay_loader is not None else None
+            loss = train_one_epoch_mixed(
+                model,
+                real_loader,
+                synth_iter,
+                optimizer,
+                criterion,
+                device,
+                clip_grad=args.clip_grad,
+                amp=args.amp,
+            )
             epoch_s = time.perf_counter() - t_epoch
             if scheduler is not None:
                 scheduler.step(loss)
@@ -625,10 +1015,20 @@ def main(argv: list[str] | None = None) -> None:
                 f"(EM:{scores_heur.exact_match * 100:.1f}%)",
                 flush=True,
             )
+            if scores_raw.exact_match > best_em:
+                best_em = scores_raw.exact_match
+                best_epoch = epoch
+                torch.save(model.state_dict(), checkpoint_best)
             _save_resume(resume2, epoch, model, optimizer, scheduler)
 
         torch.save(model.state_dict(), checkpoint_final)
-        print(f"[ocr-train] Saved Stage 2 model to {checkpoint_final}")
+        print(f"[ocr-train] Saved Stage 2 model to {checkpoint_final} (last epoch)")
+        if checkpoint_best.exists():
+            model.load_state_dict(torch.load(checkpoint_best, map_location=device))
+            print(
+                f"[ocr-train] Reporting the best epoch: {best_epoch} "
+                f"(EM {best_em * 100:.1f}%), {checkpoint_best}"
+            )
 
         final_raw, final_heur = evaluate(model, test_loader, device)
         metrics_file = args.save_dir / "final_metrics.json"
@@ -636,6 +1036,8 @@ def main(argv: list[str] | None = None) -> None:
             json.dumps(
                 {
                     "n_test": final_raw.n,
+                    "selected": "best",
+                    "best_epoch": best_epoch,
                     "raw_char_accuracy": final_raw.char_accuracy,
                     "raw_exact_match": final_raw.exact_match,
                     "heur_char_accuracy": final_heur.char_accuracy,
