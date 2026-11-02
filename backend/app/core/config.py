@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """
 Application settings via pydantic-settings.
 
@@ -64,8 +67,16 @@ class Settings(BaseSettings):
     # Vehicle attribute classifiers (tools/train_*_classifier.py output).
     # The engine refuses to run when these are missing: a body type or colour
     # guessed without a model would be written to the database as fact.
-    TYPE_MODEL_PATH: str = "/mnt/nina/SmartParking/runs/resnet18_final_type_v2_best.pt"
-    COLOR_MODEL_PATH: str = "/mnt/nina/SmartParking/checkpoints/resnet18_color_v3_best.pt"
+    #
+    # Point these at the *_best.pt files. The class order is read from the
+    # *_metrics.json sitting beside the checkpoint, so a new taxonomy (furgon
+    # merged away: 5 types) needs no code change here -- only a matching pair.
+    TYPE_MODEL_PATH: str = (
+        "/home/nina/FNI2025/ProjectParking/datasets/runs/resnet18_final_type_v3_best.pt"
+    )
+    COLOR_MODEL_PATH: str = (
+        "/home/nina/FNI2025/ProjectParking/datasets/runs/resnet18_final_color_v5_best.pt"
+    )
 
     # Where entry crops are written for the incident search thumbnails
     ENTRY_IMAGE_DIR: str = "/var/lib/smart-parking/entries"
@@ -122,11 +133,36 @@ class Settings(BaseSettings):
 
     # OCR. Off until a reader is measured on the frozen test set: an unread
     # plate must not close the wrong session.
-    OCR_ENABLED: bool = False
-    OCR_READER: Literal["paddle", "crnn"] = "paddle"
+    #
+    # Measured 2026-11-01 on the curated plate-disjoint test (159 crops, 116
+    # plates, no plate shared with training): 85.4% character accuracy, 53.5%
+    # exact match (95% CI 45.7-61.2), after 2-epoch stage 1 + 100-epoch stage 2
+    # with crop jitter. Both framings improve together: served 54.4%, tight
+    # 51.8%. Still not enough to close a session automatically -- the equality
+    # check is the guard, not per-read confidence.
+    #
+    # NOT comparable with the older 83.1% / 42.6%: that was measured on 101
+    # Paddle-cut crops whose recording sessions also appeared in training, which
+    # leaked plate identity. This test shares no plate with training, so the
+    # task is strictly harder.
+    OCR_ENABLED: bool = True
+    OCR_READER: Literal["paddle", "crnn"] = "crnn"
+    # Confidence gates a *read*, not a match: matching still requires the exit
+    # and the entry to produce the same plate. Measured on 88 vehicle crops the
+    # CRNN's confidence separates weakly (median 0.981 on correct reads, 0.835 on
+    # wrong ones) and raising this to 0.9 only lifts per-read exact match from
+    # 26% to 51% while dropping coverage to 44%. The threshold is kept permissive
+    # because the equality check is the real guard.
     OCR_MIN_CONFIDENCE: float = 0.60
     OCR_CRNN_CHECKPOINT: str = (
-        "/mnt/nina/SmartParking/runs/ocr_real_only_v2/crnn_stage2_real.pt"
+        "/home/nina/FNI2025/ProjectParking/runs/ocr_v3_plus/crnn_stage2_best.pt"
+    )
+    # Single-class plate detector (tools/train_plate_detector.py). Empty means
+    # the CRNN is handed the vehicle crop directly, which it cannot read.
+    # Measured 2026-10-24 on 58 unseen recording blocks: recall 0.971,
+    # precision 0.986, mAP@50 0.990. That is the detection half of H1.4.
+    PLATE_DETECTOR_PATH: str = (
+        "/home/nina/FNI2025/ProjectParking/plates_det/runs/plate_det/weights/best.pt"
     )
     OCR_USE_GPU: bool = False
     OCR_LANG: str = "latin"  # PaddleOCR language
