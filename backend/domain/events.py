@@ -15,17 +15,18 @@ pure: no frames, no models, no database.
 """
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from datetime import datetime
 
 from backend.domain.vehicle import VehicleAttributes
+from backend.domain.zones import DEFAULT_CROSSING_HITS, ZoneGate
 
 Box = tuple[int, int, int, int]
 
 IOU_MATCH_THRESHOLD = 0.3
 CONFIRM_AFTER_FRAMES = 3
 MAX_AGE_SECONDS = 10.0
-
 
 def intersection_over_union(a: Box, b: Box) -> float:
     """Overlap of two boxes, 0.0 when they do not touch."""
@@ -66,6 +67,9 @@ class GateEvent:
     observed_at: datetime
     attributes: VehicleAttributes
     detection_confidence: float = 0.0
+    # "entry" or "exit" when the crossing was seen, None when the camera has no
+    # geometry: without a line there is no direction, only a vehicle in frame.
+    direction: str | None = None
 
 
 def _area(box: Box) -> int:
@@ -82,6 +86,11 @@ class _Track:
     last_seen: datetime
     hits: int = 1
     emitted: bool = False
+    inside_at_start: bool | None = None
+    inside_now: bool = False
+    flip_hits: int = 0
+    vx: float = 0.0
+    vy: float = 0.0
     best_box: Box | None = None
     best_attributes: VehicleAttributes | None = None
     best_area: int = 0
@@ -100,6 +109,11 @@ class TrackAggregator:
     The aggregator is stateful per camera. One instance per camera, in one
     process: the state is the reason the worker must not fan out frames of the
     same camera across processes.
+
+    With a ``gate``, a track is only emitted when it entered or left the apron
+    polygon, and the side it starts on decides the direction. Using the polygon
+    and not the tripwire is deliberate: a line drawn across the frame can sit
+    behind the traffic lane, and then street traffic already counts as inside.
     """
 
     def __init__(
@@ -108,14 +122,20 @@ class TrackAggregator:
         match_iou: float = IOU_MATCH_THRESHOLD,
         confirm_after: int = CONFIRM_AFTER_FRAMES,
         max_age_seconds: float = MAX_AGE_SECONDS,
+        gate: ZoneGate | None = None,
+        crossing_hits: int = DEFAULT_CROSSING_HITS,
     ) -> None:
         if confirm_after < 1:
             raise ValueError("confirm_after must be at least 1")
         if max_age_seconds <= 0:
             raise ValueError("max_age_seconds must be positive")
+        if crossing_hits < 1:
+            raise ValueError("crossing_hits must be at least 1")
         self.match_iou = match_iou
         self.confirm_after = confirm_after
         self.max_age_seconds = max_age_seconds
+        self.gate = gate
+        self.crossing_hits = crossing_hits
         self._tracks: dict[str, list[_Track]] = {}
         self._next_id = 1
 
@@ -150,20 +170,37 @@ class TrackAggregator:
                 self._next_id += 1
                 alive.append(track)
             else:
+                previous = track.box
                 track.box = detection.box
                 track.attributes = detection.attributes
                 track.last_seen = now
                 track.hits += 1
+                # Constant-velocity estimate, smoothed, so the next match is
+                # tested against where this vehicle is going and not only where
+                # it was. Without it, a second car arriving on the same spot is
+                # absorbed by the first one's track.
+                dx = (detection.box[0] + detection.box[2]
+                      - previous[0] - previous[2]) / 2.0
+                dy = (detection.box[1] + detection.box[3]
+                      - previous[1] - previous[3]) / 2.0
+                track.vx = 0.5 * track.vx + 0.5 * dx
+                track.vy = 0.5 * track.vy + 0.5 * dy
                 if _area(detection.box) > track.best_area:
                     track.best_box = detection.box
                     track.best_attributes = detection.attributes
                     track.best_area = _area(detection.box)
                     track.best_detection_confidence = detection.detection_confidence
+            if self.gate is not None:
+                inside = self.gate.in_inside(detection.box)
+                if track.inside_at_start is None:
+                    track.inside_at_start = inside
+                track.inside_now = inside
+                if inside != track.inside_at_start:
+                    track.flip_hits += 1
             matched.add(track.track_id)
 
         self._tracks[camera_id] = alive
         return self._confirmed(alive, camera_id, now)
-
     def _best_match(
         self,
         tracks: list[_Track],
@@ -175,10 +212,20 @@ class TrackAggregator:
         for track in tracks:
             if track.track_id in already_matched:
                 continue
-            score = intersection_over_union(track.box, box)
+            # Score against the current box and against the predicted one: a
+            # vehicle that keeps moving is found where it is going to be, and a
+            # newcomer standing on top of it no longer looks like a match.
+            score = max(intersection_over_union(track.box, box),
+                        intersection_over_union(self._predict(track), box))
             if score >= best_score:
                 best, best_score = track, score
         return best
+
+    @staticmethod
+    def _predict(track: _Track) -> Box:
+        dx, dy = int(round(track.vx)), int(round(track.vy))
+        x1, y1, x2, y2 = track.box
+        return (x1 + dx, y1 + dy, x2 + dx, y2 + dy)
 
     def _confirmed(
         self,
@@ -188,9 +235,26 @@ class TrackAggregator:
     ) -> list[GateEvent]:
         events: list[GateEvent] = []
         for track in tracks:
-            if track.emitted or track.hits < self.confirm_after:
+            if track.emitted:
                 continue
+            if self.gate is None:
+                if track.hits < self.confirm_after:
+                    continue
+                direction = None
+            else:
+                # The crossing of the line is the event, and it happens at the
+                # gate: waiting for the vehicle to leave the whole polygon puts
+                # the timestamp twenty seconds late. The polygon still has a say
+                # -- a vehicle that never reached the apron only drove past.
+                if track.flip_hits < self.crossing_hits:
+                    continue
+                direction = "entry" if track.inside_now else "exit"
             track.emitted = True
+            if os.environ.get("PARKING_DEBUG_TRACKS"):
+                print(f"[track] {camera_id} id={track.track_id} "
+                      f"inside={track.inside_at_start}->{track.inside_now} "
+                      f"flips={track.flip_hits} "
+                      f"hits={track.hits} dir={direction}", flush=True)
             events.append(
                 GateEvent(
                     camera_id=camera_id,
@@ -199,6 +263,7 @@ class TrackAggregator:
                     observed_at=now,
                     attributes=track.best_attributes or track.attributes,
                     detection_confidence=track.best_detection_confidence,
+                    direction=direction,
                 )
             )
         return events

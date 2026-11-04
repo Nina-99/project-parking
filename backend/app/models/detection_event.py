@@ -43,5 +43,10 @@ class DetectionEvent(Base):
 
     track_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
+    # What the system decided: "entry", "exit", or None when the camera has no
+    # geometry. Stored because the decision is the result being measured; deriving
+    # it later from the camera's role would be reading the input, not the output.
+    direction: Mapped[str | None] = mapped_column(String(10), nullable=True, index=True)
+
     def __repr__(self) -> str:
         return f"<Detection {self.object_class} ({self.confidence:.2f})>"

@@ -64,8 +64,7 @@ class Settings(BaseSettings):
     YOLO_MODEL_PATH: str = "yolo26n.pt"
     YOLO_CONFIDENCE: float = 0.5
 
-    # Vehicle attribute classifiers (tools/train_*_classifier.py output).
-    # The engine refuses to run when these are missing: a body type or colour
+    # Vehicle attribute classifiers (tools/train_*_classifier.py output).    # The engine refuses to run when these are missing: a body type or colour
     # guessed without a model would be written to the database as fact.
     #
     # Point these at the *_best.pt files. The class order is read from the
@@ -88,6 +87,12 @@ class Settings(BaseSettings):
 
     # Total occupancy has a denominator, but no table: it is a site constant.
     PARKING_CAPACITY: int = 0
+
+    # Access geometry. A vehicle only becomes an event when its ground-contact
+    # point reaches the camera's inside_zone, the same rule the offline extractor
+    # uses. CAMERA_ZONES maps the capture camera id to its key in the file.
+    ZONES_CONFIG_PATH: str = "zones_config.json"
+    CAMERA_ZONES: str = "gate-1=channel16,gate-2=channel6"
 
     # A camera that has not sent a heartbeat in this window is shown as offline.
     CAMERA_OFFLINE_AFTER_SECONDS: float = 20.0

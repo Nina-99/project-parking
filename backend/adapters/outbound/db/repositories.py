@@ -125,6 +125,7 @@ class SqlAlchemyDetectionStore:
         model_name: str,
         inference_latency_ms: float | None,
         track_id: int,
+        direction: str | None = None,
     ) -> None:
         x1, y1, x2, y2 = box
         self._session.add(DetectionEvent(
@@ -138,4 +139,5 @@ class SqlAlchemyDetectionStore:
             crop_image_path=crop_image_path,
             inference_latency_ms=inference_latency_ms,
             track_id=track_id,
+            direction=direction,
         ))

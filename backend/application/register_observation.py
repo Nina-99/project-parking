@@ -57,11 +57,16 @@ def register_observation(
     if gate not in GATES:
         raise ValueError(f"gate must be one of {GATES}, got {gate!r}")
 
+    # The crossing decides the direction when it was seen. The camera's role is
+    # only a fallback: at a gate used both ways, a camera fixed to "exit" would
+    # record an entry as an exit.
+    direction = event.direction or gate
+
     vehicle_id = uow.vehicles.add(event.attributes, plate, image_path)
 
     session_id: str | None = None
     matched_session_id: str | None = None
-    if gate == "entry":
+    if direction == "entry":
         session_id = uow.sessions.open(vehicle_id, event.camera_id, event.observed_at)
     else:
         match = find_match(
@@ -90,10 +95,11 @@ def register_observation(
         model_name=model_name or "unknown",
         inference_latency_ms=latency_ms,
         track_id=event.track_id,
+        direction=direction,
     )
     uow.commit()
 
-    if gate == "entry":
+    if direction == "entry":
         event_type = "vehicle_entry"
     elif matched_session_id is not None:
         event_type = "vehicle_exit"

@@ -78,6 +78,7 @@ class DetectionStore(Protocol):
         model_name: str,
         inference_latency_ms: float | None,
         track_id: int,
+        direction: str | None = None,
     ) -> None: ...
 
 

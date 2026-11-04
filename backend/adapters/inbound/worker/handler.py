@@ -39,7 +39,9 @@ def handle_frame(
     started = time.perf_counter()
     detections = dependencies.analyzer.process(frame)
     latency_ms = (time.perf_counter() - started) * 1000.0
-    events = dependencies.aggregator_for(camera_id).update(
+    events = dependencies.aggregator_for(
+        camera_id, frame.shape[1], frame.shape[0],
+    ).update(
         camera_id,
         [
             GateDetection(

@@ -76,7 +76,7 @@ def build(
         uow_factory=lambda: uow,
         publisher=FakePublisher(),
         crop_store=crops,
-        aggregator_for=lambda camera_id: aggregators.setdefault(
+        aggregator_for=lambda camera_id, _width, _height: aggregators.setdefault(
             camera_id, TrackAggregator(),
         ),
         plate_reader=plate_reader,

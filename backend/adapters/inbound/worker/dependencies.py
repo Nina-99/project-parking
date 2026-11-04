@@ -35,7 +35,7 @@ class WorkerDependencies:
     uow_factory: Callable[[], AbstractContextManager[UnitOfWork]]
     publisher: EventPublisher
     crop_store: CropStore
-    aggregator_for: Callable[[str], TrackAggregator]
+    aggregator_for: Callable[[str, int, int], TrackAggregator]
     plate_reader: PlateReader | None = None
     model_name: str = "unknown"
 
