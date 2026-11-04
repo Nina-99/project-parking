@@ -50,6 +50,7 @@ import subprocess
 import sys
 import tempfile
 import time
+from datetime import UTC, datetime
 from pathlib import Path
 
 CHUNK_RE = re.compile(r"_(?P<start>\d{14})_(?P<end>\d{14})\.mp4$")
@@ -135,13 +136,24 @@ def write_mediamtx_config(work_dir: Path) -> Path:
     return config
 
 
-def ffmpeg_command(path: Path, url: str) -> list[str]:
+def ffmpeg_command(path: Path, url: str, transcode: bool = False) -> list[str]:
+    """Publish one recording over RTSP.
+
+    ``-c copy`` keeps NVR quality but sends HEVC straight through, and the
+    reader on the other side loses reference frames over this path ("Could not
+    find ref with POC"), which shows up as corrupted detections. Transcoding to
+    H.264 costs CPU and removes that whole class of noise from the measurement.
+    """
+    codec = (["-c:v", "libx264", "-preset", "veryfast", "-tune", "zerolatency",
+              "-g", "30"]
+             if transcode else ["-c", "copy"])
     return [
         "ffmpeg", "-hide_banner", "-loglevel", "warning",
         "-re",                      # pace at wall-clock speed
         "-stream_loop", "-1",       # the hour repeats forever
         "-i", str(path),
-        "-c", "copy",               # no re-encoding: the stream keeps NVR quality
+        "-an",                      # the recorder has no audio worth carrying
+        *codec,
         "-f", "rtsp", url,
     ]
 
@@ -192,9 +204,43 @@ def build_parser() -> argparse.ArgumentParser:
                         help="Print the plan without starting processes.")
     parser.add_argument("--with-capture", action="store_true",
                         help="Also run rtsp-capture/capture.py per camera.")
+    parser.add_argument("--gate", action="append", default=[],
+                        help="NAME=entry|exit per camera. Defaults to gate-1=entry, "
+                             "gate-2=exit: one camera opens sessions and the other "
+                             "closes them.")
     parser.add_argument("--sample-interval", type=float, default=0.5,
                         help="Frame sampling passed to capture.py.")
+    parser.add_argument("--start-file", type=Path, default=None,
+                        help="Write the instant the streams started, as ISO. That "
+                             "instant is what --replay-start needs: guessing it "
+                             "would shift every detected event by the startup lag.")
+    parser.add_argument("--skip-checks", action="store_true",
+                        help="Do not verify the broker and the database first. Only "
+                             "for a deliberate no-op run.")
+    parser.add_argument("--transcode", action="store_true",
+                        help="Re-encode to H.264 instead of copying the recorder's "
+                             "HEVC. Costs CPU; removes the lost-reference-frame "
+                             "errors that corrupt detections on this path.")
     return parser
+
+
+def parse_gates(values: list[str]) -> dict[str, str]:
+    """Which camera opens sessions and which one closes them.
+
+    Both default to ``entry`` in ``capture.py``. Replaying a lot with two entry
+    cameras creates two sessions per visit and closes none, which looks like a
+    detector that over-counts rather than a harness running the wrong role.
+    """
+    gates = {"gate-1": "entry", "gate-2": "exit"}
+    for value in values:
+        if "=" not in value:
+            raise SystemExit(f"[sim] --gate expects NAME=entry|exit, got {value!r}")
+        name, gate = value.split("=", 1)
+        gate = gate.strip()
+        if gate not in ("entry", "exit"):
+            raise SystemExit(f"[sim] gate must be entry or exit, got {gate!r}")
+        gates[name.strip()] = gate
+    return gates
 
 
 def parse_cameras(values: list[str]) -> dict[str, str]:
@@ -209,9 +255,46 @@ def parse_cameras(values: list[str]) -> dict[str, str]:
     return cameras
 
 
+def check_services() -> None:
+    """Refuse to start when the chain cannot store anything.
+
+    A replay that cannot publish looks exactly like a quiet hour: the camera
+    keeps sampling, every frame fails to queue, and fifteen minutes later there
+    is nothing in the database. Failing here costs two seconds instead.
+    """
+    from backend.app.core.config import settings
+
+    problems = []
+    try:
+        import redis
+
+        redis.Redis.from_url(settings.CELERY_BROKER_URL,
+                             socket_connect_timeout=2).ping()
+    except Exception as error:  # noqa: BLE001 - any failure means "not ready"
+        problems.append(f"broker  {settings.CELERY_BROKER_URL}: {error}")
+    try:
+        from sqlalchemy import create_engine, text
+
+        engine = create_engine(settings.DATABASE_URL_SYNC)
+        with engine.connect() as connection:
+            connection.execute(text("select 1"))
+        engine.dispose()
+    except Exception as error:  # noqa: BLE001
+        problems.append(f"database {settings.DATABASE_URL_SYNC}: {error}")
+    if problems:
+        raise SystemExit(
+            "[sim] refusing to start: the worker cannot store events.\n  "
+            + "\n  ".join(problems)
+            + "\n  Levanta el stack con ./scripts/dev.sh up"
+        )
+
+
 def main(argv: list[str] | None = None) -> None:
     args = build_parser().parse_args(argv)
     cameras = parse_cameras(args.camera)
+
+    if not args.list_hours and not args.dry_run and not args.skip_checks:
+        check_services()
 
     index = index_videos(args.videos, cameras)
     hours = common_hours(index)
@@ -236,7 +319,8 @@ def main(argv: list[str] | None = None) -> None:
             f"Available (first 5): {', '.join(hours[:5])}")
 
     urls = stream_urls(args.rtsp_port, list(cameras))
-    plan = {name: [ffmpeg_command(path, urls[name]) for path in index[name][hour]]
+    plan = {name: [ffmpeg_command(path, urls[name], args.transcode)
+                   for path in index[name][hour]]
             for name in cameras}
 
     print(f"[sim] replaying hour {hour} from {args.videos}")
@@ -281,17 +365,28 @@ def main(argv: list[str] | None = None) -> None:
             print(f"[sim] publishing {name} at {urls[name]}")
 
         capture = Path(__file__).resolve().parent.parent / "rtsp-capture" / "capture.py"
+        gates = parse_gates(args.gate)
         for name, url in urls.items():
-            print(f"\n[sim] capture command for {name}:\n"
-                  f"  uv run python {capture} --camera-id {name} --rtsp-url {url}")
+            gate = gates.get(name, "entry")
+            print(f"\n[sim] capture command for {name} ({gate}):\n"
+                  f"  uv run python {capture} --camera-id {name} --rtsp-url {url} "
+                  f"--gate {gate}")
         if args.with_capture:
             for name, url in urls.items():
                 processes.append(subprocess.Popen([
                     sys.executable, str(capture), "--camera-id", name,
                     "--rtsp-url", url, "--interval", str(args.sample_interval),
+                    "--gate", gates.get(name, "entry"),
                 ], env=capture_env()))
 
         print("\n[sim] running. Ctrl+C to stop.")
+        if args.start_file:
+            # Written once capture is running: the instant the first frames can
+            # reach the worker, not when ffmpeg was spawned.
+            args.start_file.parent.mkdir(parents=True, exist_ok=True)
+            started = datetime.now(UTC).isoformat(timespec="seconds")
+            args.start_file.write_text(started + "\n", encoding="utf-8")
+            print(f"[sim] replay started at {started}")
         while True:
             time.sleep(1)
     except KeyboardInterrupt:
