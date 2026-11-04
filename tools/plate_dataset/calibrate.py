@@ -25,6 +25,7 @@ Controls
 from __future__ import annotations
 
 import json
+import time
 from pathlib import Path
 
 import cv2
@@ -76,6 +77,11 @@ class ZoneCalibrator:
         self.total = 0
         self.fps = 15.0
         self.model: YOLO | None = None
+        # Monotonic instant until which the "saved" badge stays on screen. Saving
+        # does not close the window, and without this the only feedback went to a
+        # terminal the calibrator covers.
+        self.save_flash = 0.0
+        self.save_count = 0
 
     # -- coordinate helpers ---------------------------------------------------
     def _to_px(self, point) -> tuple[int, int]:
@@ -190,6 +196,8 @@ class ZoneCalibrator:
         if self.camera.osd_zones:
             cam.setdefault("osd_zones", [list(b) for b in self.camera.osd_zones])
         self.config_path.write_text(json.dumps(data, indent=4) + "\n", encoding="utf-8")
+        self.save_flash = time.monotonic() + 1.8
+        self.save_count += 1
         print(f"[saved] {self.config_path} -> camera '{self.camera.name}'")
 
     def _seek(self, cap: cv2.VideoCapture, delta: int, current: np.ndarray) -> np.ndarray:
@@ -241,7 +249,8 @@ class ZoneCalibrator:
         help_lines = [
             f"target: {self.target}  [1]street [2]inside [3]tripwire",
             f"tracks {len(self.tracks)}  entry {counts['entry']}  exit {counts['exit']}  pass {counts['pass']}  unknown {counts['unknown']}",
-            "[a]dd [d]elete vertex | drag to move | [s]ave | [r]eset | SPACE pause",
+            "[a]dd [d]elete vertex | drag to move | [r]eset | SPACE pause",
+            "[s]/ENTER save (window stays open) | [q] quit",
             "[b]/[f] seek 5s | [,]/[.] 1 frame | arrows seek",
             "PAUSED" if self.paused else "playing",
         ]
@@ -249,6 +258,17 @@ class ZoneCalibrator:
             y = 26 + i * 24
             cv2.putText(canvas, text, (12, y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 4, cv2.LINE_AA)
             cv2.putText(canvas, text, (12, y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2, cv2.LINE_AA)
+
+        if time.monotonic() < self.save_flash:
+            text = f"SAVED  {self.camera.name}  ({self.save_count})"
+            (text_w, text_h), _ = cv2.getTextSize(
+                text, cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2)
+            x = max(12, canvas.shape[1] - text_w - 36)
+            y = 34
+            cv2.rectangle(canvas, (x - 12, y - text_h - 10),
+                          (x + text_w + 12, y + 10), (40, 140, 40), -1)
+            cv2.putText(canvas, text, (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.7,
+                        (255, 255, 255), 2, cv2.LINE_AA)
 
         return canvas
 
