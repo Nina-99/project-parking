@@ -101,6 +101,82 @@ dataset/
 | `plate_dataset/plate_ocr.py` | PaddleOCR wrapper and plate filter. |
 | `plate_dataset/writer.py` | Dataset folders, labels and manifest. |
 
+## Measuring vehicle detection (H1.1)
+
+A separate, much smaller dataset from the one above: it holds **full frames**,
+one per vehicle pass, because a detection metric needs the vehicle in context
+and the extractor stores crops.
+
+```bash
+# 1. One frame per pass, with low-confidence boxes as proposals
+uv run python tools/export_detection_frames.py \
+    --videos /mnt/nina/PARKING --hour 2026033010 \
+    --output ~/Smart_Parking_dataset/detection
+
+# 2. A person accepts, deletes or draws. Resumable, one label file per image.
+#    --blind-every 4 opens one image in four with no proposals: that subset is
+#    the only one that can measure a miss the detector never proposed.
+uv run python tools/label_boxes_gui.py --root ~/Smart_Parking_dataset/detection \
+    --blind-every 4
+
+# 3. AP@50 with a bootstrap interval, one row per model
+uv run python tools/eval_vehicle_detection.py \
+    --root ~/Smart_Parking_dataset/detection \
+    --model yolo26n.pt --model yolo26s.pt \
+    --json ~/Smart_Parking_dataset/detection/ap50.json
+```
+
+| File | Role |
+|------|------|
+| `export_detection_frames.py` | Samples the footage, tracks vehicles, writes one full frame per confirmed pass plus `proposals.jsonl`. |
+| `label_boxes_gui.py` | Multi-box review. `--check` reports how much is left without opening a window. |
+| `eval_vehicle_detection.py` | Greedy IoU matching, AP@50, precision/recall at the served threshold, both intervals. |
+| `detection_dataset.py` | Label IO, IoU, matching, AP and intervals. Pure: no window, no model. |
+
+Two decisions worth remembering. **One frame per pass, not per second**: frames
+of the same car are near-duplicates, and sampling by time yields an interval
+that is narrower than the evidence. **One class**: H1.1 asks whether a vehicle is
+found; body type is H1.2 and is measured on crops.
+
+**Proposals are visible except on the blind subset, and that is deliberate.** With
+a box already drawn, a reviewer stops looking for vehicles the detector missed,
+and recall stops being measurable. `review_journal.jsonl` records whether each
+label was saved untouched; `--check` prints the acceptance rate, which belongs in
+the thesis next to the AP.
+
+## Measuring access events (H1.5)
+
+Ground truth here is a human count of crossings, taken on the recording itself so
+it lives in seconds of video and survives any later replay.
+
+```bash
+# 1. Watch the recording and mark every entry and exit
+uv run python tools/label_events_gui.py \
+    --video /mnt/nina/PARKING/C.OCCIDENTE_ch16_main_20260330100012_20260330110012.mp4 \
+    --output ~/Smart_Parking_dataset/truth/ch16_2026033010.csv --speed 2
+
+# 2. During the replay, save the history window from the API
+curl -s 'http://127.0.0.1:8000/api/v1/stats/history?limit=500' \
+    -b cookies.txt > ~/Smart_Parking_dataset/truth/ch16_2026033010_system.json
+
+# 3. Compare, shifting the wall clock onto the video timeline
+uv run python tools/compare_events.py \
+    --truth ~/Smart_Parking_dataset/truth/ch16_2026033010.csv \
+    --system ~/Smart_Parking_dataset/truth/ch16_2026033010_system.json \
+    --replay-start 2026-11-02T21:00:00 --tolerance 3
+```
+
+| File | Role |
+|------|------|
+| `label_events_gui.py` | Real-time playback of the recording with entry/exit keys. Speed and frame stepping change while it runs; resumes an existing CSV. |
+| `export_system_events.py` | Dumps the crossings the system recorded, from the detection log (includes exits that matched no session). |
+| `compare_events.py` | One-to-one matching by direction and proximity, exactness, recall with interval. |
+| `event_truth.py` | Timeline shift, matching, metrics. Pure, no window, no database. |
+
+**Exactness is `TP / (TP + FP + FN)`**, not recall: an event the system invents
+costs the same as one it misses, which is what an operator feels. Recall gets the
+only interval that is honestly binomial — over ground-truth crossings.
+
 ## Checklist
 
 - [ ] `zones_config.json` zones match what the trajectory viewer shows.
