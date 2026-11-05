@@ -35,110 +35,98 @@ tar xzf /tmp/m.tar.gz -C /tmp mediamtx && install -m755 /tmp/mediamtx ~/.local/b
 Los videos van en `/mnt/nina/PARKING` (697 horas de `C.OCCIDENTE_ch16`, 429 de
 `XVR_ch6`, **233 grabadas por las dos**).
 
-## 1. Datastores
+## 1. Levantar la cadena
 
 ```bash
 cd software
-docker compose up -d postgres redis
+./scripts/dev.sh up        # postgres 5433, redis 6379, API 8000, worker, frontend 5173
+./scripts/dev.sh status    # confirma los cinco procesos y la salud
+./scripts/dev.sh down      # conserva la base
 ```
 
-Si el puerto 5432 ya está ocupado por otra base, no toques el compose: levantá el
-postgres del simulador en otro puerto.
+`dev.sh up` aplica las migraciones de Alembic antes de arrancar la API; ni la API
+ni el worker crean el esquema por su cuenta.
+
+## 2. Reproducir una hora grabada
 
 ```bash
-docker run -d --name parking-sim-pg \
-    -e POSTGRES_DB=parking -e POSTGRES_USER=parking -e POSTGRES_PASSWORD=parking \
-    -p 5433:5432 postgres:16
-
-# esquema (Alembic; ni la API ni el worker lo crean al arrancar)
-DATABASE_URL=postgresql+asyncpg://parking:parking@localhost:5433/parking \
-uv run alembic -c backend/alembic.ini upgrade head
+uv run python tools/simulate_cameras.py --hour 2026041511 --list-hours   # qué horas hay
+RTSP_CAMERAS="gate-1=rtsp://127.0.0.1:8554/gate-1,gate-2=rtsp://127.0.0.1:8554/gate-2" \
+timeout 3600 uv run python tools/simulate_cameras.py \
+    --hour 2026041511 --with-capture --transcode \
+    --start-file /tmp/replay.start
 ```
 
-## 2. Worker y API en el host
+Antes de servir nada, el arnés comprueba el broker y la base: si alguno no
+responde, se detiene en el primer segundo en vez de transmitir una hora hacia
+ninguna parte. Ese chequeo existe porque ya pasó lo contrario.
 
-`.env` apunta a los nombres de servicio de compose (`redis`, `postgres`), que solo
-resuelven dentro de la red de compose. Desde el host hay que overridear, o falla
-la resolución de nombres y parece un problema de la simulación.
+- `--with-capture` arranca `capture.py` para las dos cámaras. `gate-1` abre sesión
+  y `gate-2` la cierra; se puede cambiar con `--gate gate-2=entry`.
+- `--transcode` recodifica a H.264. Copiar el HEVC del grabador (`-c copy`) pierde
+  fotogramas de referencia y el detector recibe imágenes dañadas.
+- `--start-file` guarda el instante en que arrancó la reproducción. Es el
+  `--replay-start` que necesita cualquier comparación contra una verdad de
+  referencia.
 
-```bash
-export CELERY_BROKER_URL=redis://localhost:6379/0
-export CELERY_RESULT_BACKEND=redis://localhost:6379/0
-export DATABASE_URL_SYNC=postgresql+psycopg://parking:parking@localhost:5433/parking
-export ENTRY_IMAGE_DIR=/tmp/opencode/entries
+Las dos cámaras reciben **la misma hora grabada**: si no, las entradas no tienen
+salidas que les correspondan.
 
-uv run celery -A backend.worker.celery_app worker --loglevel=info --concurrency=1 &
-DATABASE_URL=postgresql+asyncpg://parking:parking@localhost:5433/parking \
-uv run uvicorn backend.app.main:app --port 8001 &
-```
+Para servir sin capturar —y correr `capture.py` a mano en otra terminal— omití
+`--with-capture`; el arnés imprime entonces el comando exacto de cada cámara.
 
-## 3. Replay de las cámaras
+Al cortar, esperá unos segundos antes de leer la base: la cola del worker puede
+tener eventos pendientes. Un `timeout` en seco se come los últimos.
 
-```bash
-uv run python tools/simulate_cameras.py --hour 2026033010 --list-hours   # qué hay
-uv run python tools/simulate_cameras.py --hour 2026033010               # servir
-```
+## 3. Verificar
 
-Imprime la línea de `RTSP_CAMERAS` y los comandos de captura. Las dos cámaras
-reciben **la misma hora grabada**: si no, las entradas no tienen salidas que les
-correspondan.
-
-## 4. Captura
+La API de lectura no es pública: primero hay que abrir sesión. El token viaja en
+una cookie httpOnly.
 
 ```bash
-uv run python rtsp-capture/capture.py \
-    --camera-id gate-1 --rtsp-url rtsp://127.0.0.1:8554/gate-1 \
-    --interval 0.5 --gate entry
-```
-
-`--gate exit` en la cámara de salidas: solo una entrada abre sesión.
-
-## 5. Verificar
-
-La API de lectura ya no es pública: primero hay que abrir sesión. El token viaja
-en una cookie httpOnly.
-
-```bash
-curl -c /tmp/parking.cookies -X POST http://127.0.0.1:8001/api/v1/auth/login \
+curl -c /tmp/parking.cookies -X POST http://127.0.0.1:8000/api/v1/auth/login \
   -H 'Content-Type: application/json' \
   -d '{"username":"operator","password":"operator"}'
 
-docker exec parking-sim-pg psql -U parking -d parking -c \
-  "select vehicle_type, color, count(*) from vehicles group by 1,2 order by 3 desc;"
+# lo que el panel muestra en vivo
+curl -b /tmp/parking.cookies http://127.0.0.1:8000/api/v1/stats/occupancy
+curl -b /tmp/parking.cookies http://127.0.0.1:8000/api/v1/stats/active
 
-curl -b /tmp/parking.cookies \
-  "http://127.0.0.1:8001/api/v1/vehicles/search?from=2026-10-21T00:00:00Z&to=2026-10-22T23:59:00Z&color=plata"
-curl -b /tmp/parking.cookies "http://127.0.0.1:8001/api/v1/stats/colors?days=1"
+# el evento que decidió el sistema, con su dirección
+docker exec parking-dev-pg psql -U parking -d parking -c \
+  "select camera_id, to_char(frame_timestamp,'HH24:MI:SS'), direction
+     from detection_events order by frame_timestamp desc limit 10;"
 ```
 
-Resultado de la primera corrida real, **antes** del agregado por tracks: **26
-vehículos** persistidos con tipos y colores plausibles. Ese conteo incluía un
-vehículo por frame, así que hay que re-medirlo con la cadena actual antes de
-citarlo en la tesis. La búsqueda de `plata` devolvió primero los 3 aciertos
-exactos y después los vecinos `blanco` y `gris` — que es exactamente lo que la
-expansión por matriz de confusión tenía que hacer.
+Un evento por vehículo que **cruzó** el acceso, con `direction` igual a `entry` o
+`exit`. Si la tabla se llena con vehículos que solo pasaron por la calle, la
+geometría de esa cámara está admitiendo calle dentro del polígono: revisala con
+`tools/calibrate_zones.py`.
+
+En el navegador, `http://localhost:5173` con `operator` / `operator` (valores por
+defecto de `.env`): el panel se actualiza por WebSocket sin recargar.
 
 ## Limitaciones conocidas
 
 - **El reloj.** La app sella los eventos con la hora de pared, no con la del
-  nombre del archivo. Una búsqueda por ventana durante un replay es relativa a
-  "ahora"; para que signifique algo hay que offsetear el reloj del contenedor
-  (`libfaketime`) o buscar por ventana relativa.
-- **Warning de HEVC.** Al iniciar el stream aparecen frames sin referencia
-  (`Could not find ref with POC`). `capture.py` reconecta ante **cualquier**
-  lectura fallida, así que un solo hipo puede disparar un bucle de reconexión.
-  Conviene contar fallos consecutivos antes de reconectar.
+  nombre del archivo. Por eso el arnés escribe `--start-file`: ese instante es el
+  origen contra el que se compara cualquier verdad de referencia tomada sobre el
+  video.
+- **HEVC sin transcodificar.** Con `-c copy` el decodificador pierde fotogramas de
+  referencia (`Could not find ref with POC`) y el detector ve imágenes dañadas.
+  `--transcode` lo resuelve a cambio de CPU; sin él, cualquier medición de ese
+  tramo mide el ruido del transporte, no el sistema.
+- **El cierre por salida depende de la patente.** Una salida sin lectura
+  confiable no cierra sesión y queda registrada como `vehicle_exit_unmatched`.
+  Es deliberado: un match inventado vaciaría el lote en silencio.
 - **Localhost no es la red.** Para latencia, jitter y pérdida reales:
   `sudo tc qdisc add dev lo root netem delay 50ms loss 1%`.
-- **El worker no cierra sesiones al salir.** Nadie matchea todavía, así que la
-  ocupación solo crece. Es deliberado: inventar el match corrompería el número.
 
 ## Limpieza
 
 ```bash
 # Ctrl+C al harness; después
-docker rm -f parking-sim-pg && docker stop parking-redis
-pkill -f backend.worker.celery_app
+./scripts/dev.sh down          # API, worker, frontend y contenedores
 ```
 
 ## Por qué el matcheo no usa similitud
@@ -171,9 +159,10 @@ cambia es de dónde sale la patente. Alternativas descartadas y por qué:
 - **Similitud/reID con este backbone**: medido arriba, no sirve.
 - **Modelo de ReID dedicado**: no hay datos pareados (mismo vehículo en las dos
   cámaras) para validarlo, así que no se puede afirmar que funcione.
-- **OCR de patentes**: es la vía correcta y hay entrenador
-  (`tools/train_ocr_crnn.py`) y generador sintético, pero **no hay checkpoint
-  entrenado** y solo hay 285 patentes reales.
+- **OCR de patentes**: es la vía correcta. Hay entrenador
+  (`tools/train_ocr_crnn.py`), generador sintético y un checkpoint servido
+  (`runs/ocr_v3_plus/crnn_stage2_best.pt`, $0{,}882$ de exactitud por carácter y
+  $0{,}535$ de coincidencia exacta en su conjunto de prueba).
 
 ## El broker caído congelaba la cámara (resuelto)
 
@@ -203,48 +192,6 @@ con `FATAL: exception not rethrown` y core dump; el handler de señal ahora hace
 Lección para el resto del sistema: una caída de Redis no puede costar dos minutos
 de footage del portón. Cualquier productor sobre el camino crítico necesita lo
 mismo.
-## Limpieza
-
-```bash
-# Ctrl+C al harness; después
-docker rm -f parking-sim-pg && docker stop parking-redis
-pkill -f backend.worker.celery_app
-```
-
-## Por qué el matcheo no usa similitud
-
-Antes de implementar el matcheo se midió si el backbone del clasificador de tipo
-sirve como *embedding* de identidad, que era la vía barata. Sobre 400 crops del
-dataset congelado, 79.800 pares:
-
-| | |
-|---|---|
-| pares del **mismo** vehículo | similitud media **0,860** |
-| pares de vehículos **distintos** | p50 0,786 · p90 **0,973** · p99 0,991 |
-| P(dos vehículos distintos > 0,95) | **19,9%** |
-| P(dos vehículos distintos > 0,99) | 1,26% |
-
-**Uno de cada cinco pares de vehículos sin relación se parece más que el par
-promedio del mismo vehículo.** No existe umbral que separe: en 0,99 todavía
-aceptás 1,26% de falsos positivos y rechazás vehículos reales (0,86). El backbone
-está entrenado para silueta, no para identidad.
-
-Por eso `backend/app/core/matching.py` matchea **solo por identificador exacto**
-(la patente), con piso de confianza, y devuelve `None` si no hay prueba. Un exit
-sin match deja la sesión abierta y publica `vehicle_exit_unmatched`: el operador
-ve el estacionamiento llenarse, no vaciarse solo.
-
-Hoy el engine **no corre OCR**, así que la patente siempre es `None` y ningún exit
-cierra sesión. Está cableado igual: cuando exista un modelo de OCR, lo único que
-cambia es de dónde sale la patente. Alternativas descartadas y por qué:
-
-- **Similitud/reID con este backbone**: medido arriba, no sirve.
-- **Modelo de ReID dedicado**: no hay datos pareados (mismo vehículo en las dos
-  cámaras) para validarlo, así que no se puede afirmar que funcione.
-- **OCR de patentes**: es la vía correcta y hay entrenador
-  (`tools/train_ocr_crnn.py`) y generador sintético, pero **no hay checkpoint
-  entrenado** y solo hay 285 patentes reales.
-
 ## Anomalía observada, sin atribuir
 
 En algunas corridas el capturador iteró el bucle solo 2 veces en 20 s, cuando
