@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina Marco <marconina999@gmail.com>
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Type the plate text for already-verified boxes (end-to-end measurement).
 
     uv run python tools/label_plate_text_gui.py \

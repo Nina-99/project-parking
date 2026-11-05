@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-FileCopyrightText: 2026 Nina Marco <marconina999@gmail.com>
 # SPDX-License-Identifier: LicenseRef-Proprietary
 
 """How accurately the system decides entry and exit, against a human count (H1.5).

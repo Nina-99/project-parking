@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina Marco <marconina999@gmail.com>
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Export human-verified plate boxes as a YOLO detection dataset.
 
     uv run python tools/build_plate_detection_dataset.py \

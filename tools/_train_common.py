@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina Marco <marconina999@gmail.com>
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Shared training core for the vehicle type and colour classifiers.
 
 Both are transfer-learning runs over the same kind of input: a crop holding one
@@ -268,7 +271,8 @@ def print_summary(summary: dict, names: list[str]) -> None:
 
 
 @torch.no_grad()
-def evaluate(model, loader, device, num_classes, amp: str = "bf16") -> tuple[float, np.ndarray, list[int], list[int]]:
+def evaluate(model, loader, device, num_classes, amp: str = "bf16",
+             min_support: int = 0) -> tuple[float, np.ndarray, list[int], list[int]]:
     """Macro-F1 over the classes present, used for model selection.
 
     Deliberately keeps the legacy definition: changing the selection criterion
@@ -288,7 +292,16 @@ def evaluate(model, loader, device, num_classes, amp: str = "bf16") -> tuple[flo
     matrix = confusion(y_true, y_pred, num_classes)
     _, _, f1s = per_class_metrics(matrix)
     present = [i for i in range(num_classes) if matrix[i, :].sum() > 0]
-    macro_f1 = float(np.mean([f1s[i] for i in present])) if present else 0.0
+    # Checkpoint selection must not be decided by classes with a handful of
+    # samples: a class with 3 validation images swings the macro by
+    # 1/num_classes on a single prediction. Measured on the colour model that
+    # is why valid macro-F1 oscillated 0.62-0.69 with no trend while test
+    # macro-F1 sat at 0.79 -- the "best epoch" was being picked out of noise.
+    evaluated = (
+        [i for i in present if matrix[i, :].sum() >= min_support]
+        if min_support > 0 else present
+    )
+    macro_f1 = float(np.mean([f1s[i] for i in evaluated])) if evaluated else 0.0
     return macro_f1, matrix, y_true, y_pred
 
 
@@ -355,6 +368,11 @@ def build_parser(task: str) -> argparse.ArgumentParser:
     parser.add_argument("--min-test-support", type=int, default=MIN_TEST_SUPPORT,
                         help="Classes with fewer test samples are trained but not "
                              "reported (see MIN_TEST_SUPPORT).")
+    parser.add_argument("--select-min-support", type=int, default=20,
+                        help="Classes with fewer VALID samples are excluded from the "
+                             "macro-F1 that picks the best checkpoint. Set 0 for the "
+                             "old behaviour (all present classes), which lets a class "
+                             "with 3 images decide the epoch.")
     return parser
 
 
@@ -417,7 +435,8 @@ def main_for_task(task: str, argv: list[str] | None = None) -> None:
         loss = train_one_epoch(model, loaders["train"], optimizer, criterion, device,
                                amp=args.amp)
         scheduler.step()
-        f1, _, _, _ = evaluate(model, loaders["valid"], device, num_classes, amp=args.amp)
+        f1, _, _, _ = evaluate(model, loaders["valid"], device, num_classes, amp=args.amp,
+                               min_support=args.select_min_support)
         epoch_s = time.perf_counter() - t_epoch
         if f1 > best_f1:
             best_f1 = f1
@@ -431,7 +450,7 @@ def main_for_task(task: str, argv: list[str] | None = None) -> None:
         # fact, only guessed from file mtimes.
         print(f"Epoch {epoch:02d}/{args.epochs:02d} | {epoch_s:5.1f}s "
               f"| {len(train_ds) / epoch_s:6.1f} img/s | loss {loss:.4f} | "
-              f"valid macro-F1 {f1:.4f}{flag}", flush=True)
+              f"valid macro-F1(n>={args.select_min_support}) {f1:.4f}{flag}", flush=True)
 
     print(f"\n[{task}] best valid macro-F1: {best_f1:.4f}  ({checkpoint})")
     model.load_state_dict(torch.load(checkpoint, map_location=device))

@@ -1,10 +1,14 @@
 #!/usr/bin/env bash
+# SPDX-FileCopyrightText: 2026 Nina Marco <marconina999@gmail.com>
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 # Sequential training runner for the smart-parking classifiers.
 #
 #   ./train_all.sh datasets   # rebuild type + colour datasets from the frozen pool
 #   ./train_all.sh type       # ResNet18 body-type classifier
 #   ./train_all.sh color      # ResNet18 colour classifier
 #   ./train_all.sh ocr        # CRNN plate OCR (independent of the two above)
+#   ./train_all.sh platedet   # plate localiser from the human-reviewed boxes
 #   ./train_all.sh all        # datasets -> type -> color -> ocr
 #
 # Everything runs on one GPU, so the stages are strictly sequential: two
@@ -12,7 +16,7 @@
 #
 # Environment:
 #   FORCE=1        rebuild the datasets even if they already exist
-#   SMARTPARKING   dataset root (default /mnt/nina/SmartParking)
+#   SMARTPARKING   dataset root (default /home/nina/FNI2025/ProjectParking/datasets)
 #
 # Every stage appends to its own log under $SMARTPARKING/runs/ and fails the
 # whole run on a non-zero exit, so a broken stage never gets silently skipped.
@@ -20,10 +24,13 @@
 set -euo pipefail
 
 # Two roots, because they no longer live on the same disk:
-#   DATA   -> frozen pool, type/colour datasets, run artefacts (USB HDD)
-#   PLATES -> plates/ + ablation/ for the OCR job (moved to the NVMe: the
-#             360k-file read is what was capping stage 1 at ~200 img/s)
-DATA="${SMARTPARKING:-/mnt/nina/SmartParking}"
+#   DATA   -> frozen pool, type/colour datasets, run artefacts (NVMe)
+#   PLATES -> plates/ + ablation/ for the OCR job
+#
+# Both used to be the USB HDD at /mnt/nina. That disk started returning EIO on
+# ~1.3% of the pool crops and silently truncated 25 synthetic plate JPEGs, so
+# everything was moved to the NVMe and the HDD is no longer a source of truth.
+DATA="${SMARTPARKING:-/home/nina/FNI2025/ProjectParking/datasets}"
 PLATES="${PLATES_ROOT:-/home/nina/FNI2025/ProjectParking}"
 SW="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$DATA"
@@ -137,6 +144,18 @@ stage_color() {
         --name "$COLOR_NAME"
 }
 
+stage_platedet() {
+    # Needs the reviewed boxes: the pseudo-labels alone are not training data.
+    local verified="$PLATES/plates_det/verified.jsonl"
+    [[ -f "$verified" ]] || die "missing $verified (run the review GUI first)"
+    run_tool "platedet_dataset_$STAMP" tools/build_plate_detection_dataset.py \
+        --verified "$verified" --output "$PLATES/plates_det/dataset" --force
+    run_tool "platedet_train_$STAMP" tools/train_plate_detector.py \
+        --data "$PLATES/plates_det/dataset/data.yaml" \
+        --save-dir "$PLATES/plates_det/runs" --name plate_det \
+        --epochs "${PLATEDET_EPOCHS:-100}" --batch "${PLATEDET_BATCH:-8}"
+}
+
 stage_ocr() {
     # Without ablation/ the trainer reads an empty stem list and SILENTLY skips
     # stage 1, then fine-tunes on 395 real plates alone. Fail here instead.
@@ -145,10 +164,21 @@ stage_ocr() {
     [[ -d "$PLATES/plates/images" ]] \
         || die "missing $PLATES/plates/images"
     log "OCR root: $PLATES"
-    log "NOTE: stage 1 is ~350k synthetic plates; this is an overnight job."
+    log "NOTE: stage 1 is ~360k synthetic plates; stage 2 is 500 epochs on 395 real crops."
+    # These are the measured settings, not defaults: lr-real 2e-4 with the
+    # plateau scheduler never left the synthetic basin (14% char accuracy after
+    # 100 epochs), and 30 real epochs is ~360 gradient steps for a 21.7M-param
+    # model. See tools/train_ocr_crnn.py and the RUNBOOK for the numbers.
     run_tool "ocr_$STAMP" tools/train_ocr_crnn.py \
         --dataset "$PLATES" \
         --stage full_pipeline \
+        --epochs-synth 8 \
+        --epochs-real 500 \
+        --lr-synth 3e-3 \
+        --lr-real 1e-3 \
+        --lr-schedule fixed \
+        --synth-mix-ratio 0 \
+        --crop-jitter \
         --amp "${AMP:-bf16}" \
         --save-dir "$RUNS/ocr_$STAMP"
 }
@@ -161,13 +191,15 @@ main() {
         type)     stage_type ;;
         color)    stage_color ;;
         ocr)      stage_ocr ;;
+        platedet) stage_platedet ;;
         all)
             stage_datasets
             stage_type
             stage_color
             stage_ocr
+            stage_platedet
             ;;
-        *) die "unknown stage '$stage' (datasets|type|color|ocr|all)" ;;
+        *) die "unknown stage '$stage' (datasets|type|color|ocr|platedet|all)" ;;
     esac
     log "finished: $stage"
     log "artifacts under $RUNS"

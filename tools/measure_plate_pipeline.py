@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina Marco <marconina999@gmail.com>
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """End-to-end measurement of the plate pipeline on hand-typed vehicle crops.
 
     uv run python tools/measure_plate_pipeline.py \
