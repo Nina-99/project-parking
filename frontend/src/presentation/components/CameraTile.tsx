@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2026 Nina
+// SPDX-FileCopyrightText: 2026 Nina Marco <marconina999@gmail.com>
 // SPDX-License-Identifier: LicenseRef-Proprietary
 
 import { Camera } from "lucide-react";
@@ -7,7 +7,7 @@ import type { CameraReading } from "../../domain/types";
 
 export function CameraTile({ camera }: { camera: CameraReading }) {
   return (
-    <div className="card flex items-start justify-between gap-3">
+    <div className="card card-hover flex items-start justify-between gap-3">
       <div className="flex items-start gap-3">
         <div
           className={`w-10 h-10 rounded-full flex items-center justify-center ${

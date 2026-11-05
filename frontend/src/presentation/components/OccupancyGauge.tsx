@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2026 Nina
+// SPDX-FileCopyrightText: 2026 Nina Marco <marconina999@gmail.com>
 // SPDX-License-Identifier: LicenseRef-Proprietary
 
 const SIZE = 188;
@@ -21,6 +21,7 @@ export function OccupancyGauge({
 
   return (
     <div className="relative flex items-center justify-center">
+      <div aria-hidden className="gauge-halo" />
       <svg
         width={SIZE}
         height={SIZE}
@@ -46,11 +47,12 @@ export function OccupancyGauge({
           strokeWidth={STROKE}
           strokeLinecap="round"
           strokeDasharray={`${dash} ${circumference - dash}`}
+          className="gauge-progress"
         />
       </svg>
 
       <div className="absolute text-center">
-        <p className="font-display text-4xl font-semibold tabular-nums text-ink">
+        <p className="font-display text-4xl font-semibold tabular-nums text-gradient">
           {active}
         </p>
         <p className="text-xs text-muted">

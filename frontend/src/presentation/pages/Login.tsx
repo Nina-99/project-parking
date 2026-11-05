@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2026 Nina
+// SPDX-FileCopyrightText: 2026 Nina Marco <marconina999@gmail.com>
 // SPDX-License-Identifier: LicenseRef-Proprietary
 
 import { useState, type FormEvent } from "react";
@@ -48,6 +48,7 @@ export function Login() {
       <section className="relative hidden overflow-hidden bg-brand p-12 text-brand-ink lg:flex lg:flex-col lg:justify-between">
         <div className="absolute inset-0 blueprint opacity-70" />
         <div className="absolute -left-24 top-1/4 h-72 w-72 rounded-full bg-accent/20 blur-3xl" />
+        <div className="absolute -bottom-24 right-0 h-80 w-80 rounded-full bg-warn/10 blur-3xl" />
 
         <div className="relative">
           <div className="flex items-center gap-3">
@@ -62,7 +63,7 @@ export function Login() {
             </div>
           </div>
 
-          <h1 className="font-display mt-16 max-w-md text-4xl font-semibold leading-[1.08] tracking-tight xl:text-5xl">
+          <h1 className="font-display mt-16 max-w-md bg-gradient-to-br from-white via-white to-accent bg-clip-text text-4xl font-semibold leading-[1.08] tracking-tight text-transparent xl:text-5xl">
             Cada vehículo deja un rastro.
           </h1>
           <p className="mt-4 max-w-md text-sm leading-relaxed text-brand-ink/70">
@@ -92,12 +93,21 @@ export function Login() {
         </p>
       </section>
 
-      <section className="relative flex items-center justify-center px-6 py-12">
+      <section className="relative flex items-center justify-center overflow-hidden px-6 py-12">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 flex items-center justify-center"
+        >
+          <div className="radar h-[34rem] w-[34rem] opacity-80" />
+        </div>
         <div className="absolute right-6 top-6">
           <SettingsMenu />
         </div>
 
-        <form onSubmit={submit} className="w-full max-w-sm space-y-5">
+        <form
+          onSubmit={submit}
+          className="page-enter surface-glass relative z-10 w-full max-w-sm space-y-5 rounded-2xl border border-border p-6 shadow-2xl"
+        >
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-subtle">
               Acceso de operador

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2026 Nina
+// SPDX-FileCopyrightText: 2026 Nina Marco <marconina999@gmail.com>
 // SPDX-License-Identifier: LicenseRef-Proprietary
 
 /** One socket for the whole app: query invalidation plus a short event feed. */
@@ -37,6 +37,8 @@ export function LiveEventsProvider({ children }: { children: ReactNode }) {
       void queryClient.invalidateQueries({ queryKey: ["vehicle"] });
       void queryClient.invalidateQueries({ queryKey: ["model-stats"] });
       void queryClient.invalidateQueries({ queryKey: ["cameras"] });
+      void queryClient.invalidateQueries({ queryKey: ["pending-validations"] });
+      void queryClient.invalidateQueries({ queryKey: ["quality-stats"] });
     });
 
     return () => {

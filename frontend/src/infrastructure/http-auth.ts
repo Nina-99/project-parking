@@ -1,14 +1,11 @@
-// SPDX-FileCopyrightText: 2026 Nina
+// SPDX-FileCopyrightText: 2026 Nina Marco <marconina999@gmail.com>
 // SPDX-License-Identifier: LicenseRef-Proprietary
 
 /** Auth adapter. The cookie is httpOnly, so this only sees the outcome. */
 import type { AuthPort } from "../application/ports";
+import type { SessionUser } from "../domain/types";
 
 const BASE = "/api/v1";
-
-interface Operator {
-  username: string;
-}
 
 async function readDetail(response: Response): Promise<string> {
   try {
@@ -23,16 +20,16 @@ async function readDetail(response: Response): Promise<string> {
 }
 
 export class HttpAuth implements AuthPort {
-  async me(): Promise<string> {
+  async me(): Promise<SessionUser> {
     const response = await fetch(`${BASE}/auth/me`, {
       credentials: "include",
       headers: { Accept: "application/json" },
     });
     if (!response.ok) throw new Error("No hay sesión activa");
-    return ((await response.json()) as Operator).username;
+    return (await response.json()) as SessionUser;
   }
 
-  async login(username: string, password: string): Promise<string> {
+  async login(username: string, password: string): Promise<SessionUser> {
     const response = await fetch(`${BASE}/auth/login`, {
       method: "POST",
       credentials: "include",
@@ -40,7 +37,7 @@ export class HttpAuth implements AuthPort {
       body: JSON.stringify({ username, password }),
     });
     if (!response.ok) throw new Error(await readDetail(response));
-    return ((await response.json()) as Operator).username;
+    return (await response.json()) as SessionUser;
   }
 
   async logout(): Promise<void> {

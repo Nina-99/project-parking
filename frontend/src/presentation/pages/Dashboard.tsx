@@ -1,8 +1,8 @@
-// SPDX-FileCopyrightText: 2026 Nina
+// SPDX-FileCopyrightText: 2026 Nina Marco <marconina999@gmail.com>
 // SPDX-License-Identifier: LicenseRef-Proprietary
 
 import { useState } from "react";
-import { Camera, Car, Clock, Timer, TrendingUp } from "lucide-react";
+import { Camera, Car, Clock, DoorOpen, ScanText, Timer, TrendingUp } from "lucide-react";
 import {
   Bar,
   BarChart,
@@ -18,6 +18,7 @@ import {
   useDailyStats,
   useModelStats,
   useOccupancy,
+  useQualityStats,
 } from "../../application/queries";
 import { useSession } from "../../application/session";
 import { formatClock, formatTime } from "../../domain/incident";
@@ -26,6 +27,7 @@ import { CameraTile } from "../components/CameraTile";
 import { CloseSessionDialog } from "../components/CloseSessionDialog";
 import { EventFeed } from "../components/EventFeed";
 import { OccupancyGauge } from "../components/OccupancyGauge";
+import { QualityCard } from "../components/QualityCard";
 import { StatCard } from "../components/StatCard";
 
 function ActiveRow({
@@ -80,13 +82,18 @@ export function Dashboard() {
   const active = useActiveSessions();
   const daily = useDailyStats(7);
   const cameras = useCameras();
-  const model = useModelStats(1);
   const { user } = useSession();
-  const canClose = user?.role === "admin" || user?.role === "operator";
+  const isAdmin = user?.role === "admin";
+  const isOwner = user?.role === "owner";
+  // Inference telemetry is admin-only on the server. Asking for it with another
+  // role produced a 403 on every dashboard load and a card that never filled.
+  const model = useModelStats(1, isAdmin);
+  const quality = useQualityStats(7);
+  const canClose = isAdmin || user?.role === "operator";
   const [closing, setClosing] = useState<ActiveSession | null>(null);
 
   const chartData = (daily.data ?? []).map((day) => ({
-    date: new Date(day.date).toLocaleDateString("es-BO", {
+    date: new Date(`${day.date}T00:00:00`).toLocaleDateString("es-BO", {
       weekday: "short",
       day: "numeric",
     }),
@@ -109,7 +116,7 @@ export function Dashboard() {
           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-subtle">
             Operación
           </p>
-          <h2 className="font-display text-2xl font-bold tracking-tight text-ink">
+          <h2 className="font-display text-2xl font-bold tracking-tight text-gradient">
             Dashboard
           </h2>
         </div>
@@ -138,7 +145,7 @@ export function Dashboard() {
           </div>
         </section>
 
-        <div className="grid gap-4 sm:grid-cols-2 lg:col-span-8">
+        <div className="stagger grid gap-4 sm:grid-cols-2 lg:col-span-8">
           <StatCard
             icon={TrendingUp}
             label="Ingresos del último día"
@@ -155,12 +162,32 @@ export function Dashboard() {
             }
             sub="último día"
           />
-          <StatCard
-            icon={Timer}
-            label="Latencia p95"
-            value={p95 > 0 ? `${Math.round(p95)} ms` : "—"}
-            sub="inferencia por frame"
-          />
+          {isAdmin ? (
+            <StatCard
+              icon={Timer}
+              label="Latencia p95"
+              value={p95 > 0 ? `${Math.round(p95)} ms` : "—"}
+              sub="inferencia por frame"
+            />
+          ) : isOwner ? (
+            <StatCard
+              icon={ScanText}
+              label="Placas legibles"
+              value={
+                quality.data?.plate_read_rate != null
+                  ? `${(quality.data.plate_read_rate * 100).toFixed(1)}%`
+                  : "—"
+              }
+              sub="sobre eventos registrados"
+            />
+          ) : (
+            <StatCard
+              icon={DoorOpen}
+              label="Salidas sin match"
+              value={quality.data?.unmatched_exits ?? "—"}
+              sub="requieren cierre manual"
+            />
+          )}
           <StatCard
             icon={Camera}
             label="Cámaras en línea"
@@ -231,6 +258,12 @@ export function Dashboard() {
         {chartData.length > 0 ? (
           <ResponsiveContainer width="100%" height={260}>
             <BarChart data={chartData}>
+              <defs>
+                <linearGradient id="income-bar" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="var(--color-accent)" stopOpacity={0.95} />
+                  <stop offset="100%" stopColor="var(--color-accent)" stopOpacity={0.28} />
+                </linearGradient>
+              </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
               <XAxis
                 dataKey="date"
@@ -256,7 +289,7 @@ export function Dashboard() {
               />
               <Bar
                 dataKey="vehiculos"
-                fill="var(--color-accent)"
+                fill="url(#income-bar)"
                 radius={[6, 6, 0, 0]}
                 maxBarSize={42}
               />
@@ -268,6 +301,8 @@ export function Dashboard() {
           </p>
         )}
       </section>
+
+      <QualityCard days={7} />
 
       {closing && (
         <CloseSessionDialog

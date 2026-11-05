@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2026 Nina
+// SPDX-FileCopyrightText: 2026 Nina Marco <marconina999@gmail.com>
 // SPDX-License-Identifier: LicenseRef-Proprietary
 
 /** Operator session state. The token itself lives in an httpOnly cookie. */
@@ -10,10 +10,11 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import type { SessionUser } from "../domain/types";
 import type { AuthPort } from "./ports";
 
 interface SessionValue {
-  user: string | null;
+  user: SessionUser | null;
   loading: boolean;
   error: string | null;
   login: (username: string, password: string) => Promise<boolean>;
@@ -29,7 +30,7 @@ export function SessionProvider({
   auth: AuthPort;
   children: ReactNode;
 }) {
-  const [user, setUser] = useState<string | null>(null);
+  const [user, setUser] = useState<SessionUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -37,8 +38,8 @@ export function SessionProvider({
     let alive = true;
     auth
       .me()
-      .then((name) => {
-        if (alive) setUser(name);
+      .then((session) => {
+        if (alive) setUser(session);
       })
       .catch(() => {
         if (alive) setUser(null);
@@ -54,8 +55,8 @@ export function SessionProvider({
   const login = useCallback(
     async (username: string, password: string): Promise<boolean> => {
       try {
-        const name = await auth.login(username, password);
-        setUser(name);
+        const session = await auth.login(username, password);
+        setUser(session);
         setError(null);
         return true;
       } catch (cause) {
