@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-FileCopyrightText: 2026 Nina Marco <marconina999@gmail.com>
 # SPDX-License-Identifier: LicenseRef-Proprietary
 
 """A throwaway PostgreSQL database for integration tests.
@@ -76,7 +76,8 @@ def db(postgres_test_url, monkeypatch):
     engine = db_session.get_engine()
     with engine.begin() as connection:
         connection.execute(text(
-            "TRUNCATE detection_events, parking_sessions, vehicles "
+            "TRUNCATE detection_events, parking_sessions, vehicles, "
+            "authorized_vehicles "
             "RESTART IDENTITY CASCADE",
         ))
 
@@ -86,3 +87,46 @@ def db(postgres_test_url, monkeypatch):
         db_session._engine.dispose()
     db_session._engine = None
     db_session._session_factory = None
+
+
+@pytest.fixture
+async def api(postgres_test_url):
+    """HTTP client and async session factory bound to the throwaway database.
+
+    The API's own engine is built at import time from the configured URL, which
+    in a container setup points at the compose network. Overriding ``get_session``
+    is what lets these tests run against the throwaway database from the host.
+    """
+    from httpx import ASGITransport, AsyncClient
+    from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+    from sqlalchemy.pool import NullPool
+
+    from backend.app.core.database import get_session
+    from backend.app.main import app
+
+    url = make_url(postgres_test_url).set(drivername="postgresql+asyncpg")
+    engine = create_async_engine(
+        url.render_as_string(hide_password=False), poolclass=NullPool,
+    )
+    factory = async_sessionmaker(engine, expire_on_commit=False)
+
+    async def _session():
+        async with factory() as session:
+            try:
+                yield session
+                await session.commit()
+            except Exception:
+                await session.rollback()
+                raise
+
+    app.dependency_overrides[get_session] = _session
+
+    async with engine.begin() as connection:
+        await connection.execute(text("TRUNCATE users, cameras RESTART IDENTITY CASCADE"))
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        yield client, factory
+
+    app.dependency_overrides.pop(get_session, None)
+    await engine.dispose()

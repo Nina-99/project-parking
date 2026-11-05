@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-FileCopyrightText: 2026 Nina Marco <marconina999@gmail.com>
 # SPDX-License-Identifier: LicenseRef-Proprietary
 
 """FastAPI entry point."""
@@ -17,7 +17,7 @@ from backend.app.api.errors import install_error_handlers
 from backend.app.api.health import router as health_router
 from backend.app.api.routes import router as api_router
 from backend.app.core.config import settings
-from backend.app.core.database import engine
+from backend.app.core.database import async_session_factory, engine
 
 
 @asynccontextmanager
@@ -28,6 +28,13 @@ async def lifespan(_app: FastAPI):
     relay_task = asyncio.create_task(
         relay_events(settings.CELERY_BROKER_URL, settings.EVENTS_CHANNEL)
     )
+
+    # Bootstrap the first administrator from the environment, once. After that
+    # the users table is the only source of truth.
+    from backend.app.api.auth import seed_first_admin
+
+    async with async_session_factory() as session:
+        await seed_first_admin(session)
 
     yield
 
