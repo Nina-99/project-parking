@@ -1,15 +1,20 @@
 Parking Intelligence
-Copyright (c) 2026 Nina. Todos los derechos reservados.
+Copyright (c) 2026 Nina Marco <marconina999@gmail.com>. All rights reserved.
 
-Este aviso acompaña al Software y no concede derechos sobre los componentes de
-terceros. Cada componente conserva su licencia original.
+This NOTICE accompanies the Software and is provided for informational purposes.
+It does not modify, limit, or expand the rights granted in the LICENSE file.
 
-Componentes principales:
+THIRD-PARTY COMPONENTS
+
+The Software includes, links to, or is distributed with components owned by
+third parties. Each component is governed exclusively by its own license. The
+proprietary license for the Software does not grant any rights to these
+components and does not modify or limit their terms.
 
 - Ultralytics YOLO 8.4.163 — AGPL-3.0.
-  El uso comercial o como servicio en red requiere una licencia enterprise de
-  Ultralytics o el cumplimiento de la AGPL. Revisar antes de distribuir un
-  producto propietario.
+  Commercial use, network use, or distribution may require an enterprise license
+  from Ultralytics or full compliance with the AGPL-3.0. Review before
+  distributing a proprietary product.
 
 - PaddleOCR / PaddlePaddle — Apache-2.0.
 - PyTorch / torchvision — BSD-3-Clause.
@@ -17,13 +22,23 @@ Componentes principales:
 - FastAPI — MIT.
 - SQLAlchemy — MIT.
 - Celery — BSD-3-Clause.
-- redis-py — MIT. La imagen del servidor Redis 7 usa RSALv2/SSPL; revisar si se
-  ofrece Redis como servicio.
+- redis-py — MIT. The Redis 7 server image uses RSALv2/SSPL; review if Redis is
+  offered as a service.
 - PostgreSQL — PostgreSQL License.
 - React / React DOM — MIT.
 - Recharts — MIT.
 - Tailwind CSS — MIT.
 - Lucide — ISC.
 
-La lista no es exhaustiva. Antes de una distribución comercial, generar un SBOM
-y revisar las licencias de todas las dependencias y de los pesos entrenados.
+TRAINED MODELS, WEIGHTS, AND DATASETS
+
+Trained weights, checkpoints, and datasets may be subject to separate terms,
+institutional policies, or third-party rights. The LICENSE does not grant rights
+to any material that the Licensor does not own.
+
+NO LEGAL ADVICE
+
+This NOTICE is not legal advice. The list above is not exhaustive. Before any
+commercial distribution or public deployment, generate a software bill of
+materials (SBOM) and review the licenses of all dependencies, models, weights,
+and datasets with qualified counsel.

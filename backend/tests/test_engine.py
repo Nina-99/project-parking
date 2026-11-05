@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina Marco <marconina999@gmail.com>
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """The worker engine must preprocess exactly the way the trainers evaluate.
 
 A mismatch here costs accuracy silently: no exception, no log line, just a model
@@ -21,10 +24,13 @@ if str(TOOLS) not in sys.path:
 
 from _train_common import build_transforms  # noqa: E402
 
+from backend.app.core.config import settings  # noqa: E402
 from backend.worker.engine import DetectionEngine, class_names, eval_transform  # noqa: E402
 
-TYPE_CKPT = Path("/mnt/nina/SmartParking/runs/resnet18_final_type_v2_best.pt")
-COLOR_CKPT = Path("/mnt/nina/SmartParking/checkpoints/resnet18_color_v3_best.pt")
+# Read from settings, never re-typed here: a test that duplicates the deployment
+# path keeps passing after the deployment moved somewhere else.
+TYPE_CKPT = Path(settings.TYPE_MODEL_PATH)
+COLOR_CKPT = Path(settings.COLOR_MODEL_PATH)
 YOLO = Path("yolo26s.pt")
 
 needs_models = pytest.mark.skipif(
@@ -74,7 +80,9 @@ def test_the_engine_refuses_to_guess_a_class_order(tmp_path: Path) -> None:
         engine._load(orphan)
 
 
-REAL_CROPS = Path("/mnt/nina/SmartParking/type dataset v2/test/images")
+REAL_CROPS = Path(
+    "/home/nina/FNI2025/ProjectParking/datasets/type dataset v3/test/images"
+)
 
 
 @needs_models

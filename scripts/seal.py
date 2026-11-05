@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-FileCopyrightText: 2026 Nina Marco <marconina999@gmail.com>
 # SPDX-License-Identifier: LicenseRef-Proprietary
 
 """Insert SPDX copyright headers into tracked source files.
@@ -21,8 +21,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 CONFIG = tomllib.loads((ROOT / "COPYRIGHT.toml").read_text(encoding="utf-8"))
 OWNER = str(CONFIG["owner"])
+EMAIL = str(CONFIG["email"])
 YEAR = int(CONFIG["year"])
 SPDX = str(CONFIG["spdx"])
+COPYRIGHT = f"{YEAR} {OWNER} <{EMAIL}>"
 
 EXCLUDED_NAMES = {
     "LICENSE",
@@ -48,7 +50,6 @@ SKIP_SUFFIXES = {
     ".onnx",
     ".engine",
     ".mako",
-    ".html",
     ".coverage",
     ".txt",
 }
@@ -68,12 +69,14 @@ def style_for(path: Path) -> tuple[str, str | None] | None:
         return ("/*", "*/")
     if suffix == ".md":
         return ("<!--", "-->")
+    if suffix == ".html":
+        return ("<!--", "-->")
     return None
 
 
 def render_header(open_token: str, _close_token: str | None = None) -> str:
     lines = [
-        f"SPDX-FileCopyrightText: {YEAR} {OWNER}",
+        f"SPDX-FileCopyrightText: {COPYRIGHT}",
         f"SPDX-License-Identifier: {SPDX}",
     ]
     if open_token == "#":
@@ -85,6 +88,33 @@ def render_header(open_token: str, _close_token: str | None = None) -> str:
     if open_token == "<!--":
         return "<!--\n" + "\n".join(lines) + "\n-->\n"
     raise ValueError(f"unknown comment style {open_token!r}")
+
+
+def update_existing(text: str, copyright: str) -> str:
+    """Rewrite an outdated copyright line, preserving its comment prefix.
+
+    Only the first 600 characters are header territory: a module docstring or a
+    test may legitimately mention the tag, and that mention is not a header.
+    """
+    lines = text.splitlines(keepends=True)
+    budget = 0
+    for index, line in enumerate(lines):
+        budget += len(line)
+        if budget > 600:
+            break
+        marker = "SPDX-FileCopyrightText:"
+        if marker not in line:
+            continue
+        prefix = line.split(marker, 1)[0]
+        if line.endswith("\r\n"):
+            ending = "\r\n"
+        elif line.endswith("\n"):
+            ending = "\n"
+        else:
+            ending = ""
+        lines[index] = f"{prefix}{marker} {copyright}{ending}"
+        return "".join(lines)
+    return text
 
 
 def insert(text: str, header: str) -> str:
@@ -102,8 +132,17 @@ def insert(text: str, header: str) -> str:
 
 
 def tracked_files() -> list[Path]:
-    output = subprocess.check_output(["git", "-C", str(ROOT), "ls-files", "-z"])
-    return [ROOT / item for item in output.decode().split("\0") if item]
+    """Files Git knows about, plus the new source files not committed yet.
+
+    The second half matters: a file written today is exactly the one most likely
+    to be missing its header, and ``git ls-files`` alone would skip it.
+    """
+    output = subprocess.check_output([
+        "git", "-C", str(ROOT), "ls-files", "-z",
+        "--cached", "--others", "--exclude-standard",
+    ])
+    paths = [ROOT / item for item in output.decode().split("\0") if item]
+    return list(dict.fromkeys(paths))
 
 
 def dirty_files() -> set[str]:
@@ -150,6 +189,13 @@ def main() -> int:
         except (UnicodeDecodeError, OSError):
             continue
         if "SPDX-FileCopyrightText" in text[:600]:
+            updated = update_existing(text, COPYRIGHT)
+            if updated == text:
+                continue
+            missing.append(relative)
+            if args.write:
+                path.write_text(updated, encoding="utf-8")
+                written += 1
             continue
 
         missing.append(relative)
@@ -159,15 +205,15 @@ def main() -> int:
 
     if args.check:
         if missing:
-            print("Archivos sin header SPDX:")
+            print("Archivos sin header o con header desactualizado:")
             for relative in missing:
                 print(f"  {relative}")
-            print(f"\n{len(missing)} archivo(s) sin sellar.")
+            print(f"\n{len(missing)} archivo(s) por sellar.")
             return 1
-        print("Todos los archivos tienen header SPDX.")
+        print("Todos los archivos tienen header SPDX actualizado.")
         return 0
 
-    print(f"Headers escritos: {written}")
+    print(f"Headers escritos o actualizados: {written}")
     return 0
 
 

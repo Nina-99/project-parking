@@ -3,6 +3,7 @@ message: "Si usás este software, citá el trabajo de grado."
 title: "Parking Intelligence: control de acceso y ocupación con visión por computadora"
 authors:
   - family-names: "Nina"
+    email: "marconina999@gmail.com"
 year: 2026
 version: "0.2.0"
 abstract: >-

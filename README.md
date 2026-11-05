@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: 2026 Nina
+SPDX-FileCopyrightText: 2026 Nina Marco <marconina999@gmail.com>
 SPDX-License-Identifier: LicenseRef-Proprietary
 -->
 
@@ -21,12 +21,17 @@ las capas y `RUNBOOK.md` para la reproducción de datasets y modelos.
 
 ## Propiedad y licencia
 
-© 2026 Nina. **Software propietario.** Ver [`LICENSE`](LICENSE) y
-[`NOTICE`](NOTICE).
+© 2026 Nina Marco <marconina999@gmail.com>. **Software propietario.**
+
+El texto legal completo está en inglés en [`LICENSE`](LICENSE); esa versión es
+la que prevalece. [`NOTICE`](NOTICE) documenta los componentes de terceros.
 
 No se concede uso comercial, copia, redistribución ni obras derivadas sin
-autorización escrita. El código, los pesos y los datasets no se publican con la
-tesis.
+autorización escrita. La evaluación académica de la tesis tiene un permiso
+limitado y no comercial. El código, los pesos y los datasets no se publican con
+la tesis.
+
+Para licencias comerciales o consultas: marconina999@gmail.com.
 
 ## Terceros
 
