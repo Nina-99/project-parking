@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: 2026 Nina
+SPDX-FileCopyrightText: 2026 Nina Marco <marconina999@gmail.com>
 SPDX-License-Identifier: LicenseRef-Proprietary
 -->
 
@@ -93,8 +93,8 @@ The metrics file carries three numbers, and they are not interchangeable:
 | `test_macro_f1` | legacy: mean over every present class | **do not cite** |
 
 The legacy number is kept so older artefacts stay readable. It is inflated by
-tiny classes that happen to be classified correctly; on the colour model it read
-0.574 while the same weights score 0.743 over the reportable set.
+tiny classes that happen to be classified correctly; on the final colour model
+(v5) it read 0.570 while the same weights score 0.812 over the reportable set.
 
 ## Decisions that are easy to undo by accident
 

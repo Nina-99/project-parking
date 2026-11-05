@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: 2026 Nina
+SPDX-FileCopyrightText: 2026 Nina Marco <marconina999@gmail.com>
 SPDX-License-Identifier: LicenseRef-Proprietary
 -->
 
@@ -79,6 +79,9 @@ infla la ocupación y todos los estadísticos derivados.
 | Decisión | Motivo |
 |---|---|
 | El evento se emite tras confirmar el track (3 frames) y lleva la caja más grande | Un frame no es un vehículo; el crop grande es el que sirve al operador |
+| Sólo es evento el vehículo que entra o sale del recinto | Con la calle en el encuadre, contar cada detección dio 129 sesiones en una hora con 7 vehículos reales |
+| La dirección la decide el movimiento, no la cámara | Una cámara fija a "salida" registraba como salida un vehículo que entraba; la tesis pide el sentido de la trayectoria, no del puesto |
+| Sin movimiento apreciable no hay evento | Un vehículo estacionado dentro del patio no cruzó nada, y contarlo infla la ocupación |
 | El commit pertenece al caso de uso | Una respuesta HTTP no puede construirse sobre una transacción que todavía puede fallar |
 | Se publica después del commit | Un evento en el dashboard debe describir una fila que existe |
 | No hay endpoint HTTP de ingesta | Dos caminos de escritura con semánticas distintas fue exactamente el problema anterior |
@@ -98,6 +101,7 @@ infla la ocupación y todos los estadísticos derivados.
 | Archivo | Qué resuelve |
 |---|---|
 | `backend/domain/events.py` | Agrupa frames en tracks y emite un evento por vehículo |
+| `backend/domain/zones.py` | Decide si un vehículo alcanzó el acceso y para qué lado se movió |
 | `backend/domain/matching.py` | Cierra una sesión solo con una patente exacta y confiable |
 | `backend/application/register_observation.py` | Único camino de escritura: vehículo, sesión, publicación |
 | `backend/application/close_session.py` | Cierre manual auditado, cuando el modelo no puede probar la salida |
@@ -135,17 +139,16 @@ están conectadas.
 
 ## Deuda conocida
 
-- El OCR está cableado pero apagado (`OCR_ENABLED=false`). Los dos lectores
-  comparten el puerto; falta medirlos sobre el mismo test de patentes reales y
-  elegir default con evidencia. El checkpoint CRNN disponible tiene 0 % de exact
-  match, así que hoy no podría cerrar sesiones ni con el flag encendido.
+- El OCR está habilitado por omisión (`OCR_ENABLED=true`). PaddleOCR es el
+  baseline operativo y el CRNN el modelo de la tesis; ambos comparten el puerto y
+  se comparan sobre el mismo conjunto de prueba en el capítulo de resultados.
 - PaddleOCR ya localiza y lee la patente dentro del crop del vehículo; el CRNN
   necesita que otro detector le entregue el recorte de la patente.
 - Sin ReID: se midió que el backbone no separa identidades (19,9 % de pares
   distintos por encima de 0,95), así que un exit sin patente queda sin match y se
   cierra a mano.
-- Los tests son unitarios. Falta una prueba de integración con Postgres real
-  para el ciclo entrada → evento → sesión → salida/manual close.
+- La suite comprende 154 pruebas, 22 de ellas de integración contra PostgreSQL
+  real; la cobertura es del 82 % sobre `backend/app`.
 - El estado de tracking se pierde al reiniciar el worker. Es visible como una
   sesión que queda abierta; la UI la muestra como huérfana pasadas 12 horas.
 
