@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-FileCopyrightText: 2026 Nina Marco <marconina999@gmail.com>
 # SPDX-License-Identifier: LicenseRef-Proprietary
 
 """Settings must load from the .env the project actually ships.
@@ -61,3 +61,14 @@ def test_production_accepts_a_long_secret() -> None:
                           OPERATOR_PASSWORD="s3cret")
 
     assert configured.DEBUG is False
+
+
+def test_the_report_timezone_accepts_an_iana_zone() -> None:
+    assert Settings(REPORT_TIMEZONE="America/La_Paz").REPORT_TIMEZONE == (
+        "America/La_Paz"
+    )
+
+
+def test_an_invalid_report_timezone_fails_at_startup() -> None:
+    with pytest.raises(ValidationError):
+        Settings(REPORT_TIMEZONE="Mars/Olympus")

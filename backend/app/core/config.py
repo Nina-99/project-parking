@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-FileCopyrightText: 2026 Nina Marco <marconina999@gmail.com>
 # SPDX-License-Identifier: LicenseRef-Proprietary
 
 """
@@ -9,6 +9,7 @@ Todas las variables de entorno se cargan acá.
 from __future__ import annotations
 
 from typing import Annotated, Literal, Self
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
@@ -85,6 +86,10 @@ class Settings(BaseSettings):
     # It is a display policy, not a state transition: no job writes it.
     STALE_SESSION_HOURS: float = 12.0
 
+    # Reports group by the site's local day and hour, not by UTC. A vehicle that
+    # enters at 21:00 in La Paz belongs to that day, not to the next UTC one.
+    REPORT_TIMEZONE: str = "America/La_Paz"
+
     # Total occupancy has a denominator, but no table: it is a site constant.
     PARKING_CAPACITY: int = 0
 
@@ -118,6 +123,23 @@ class Settings(BaseSettings):
             return []
         if isinstance(value, str):
             return [item.strip() for item in value.split(",") if item.strip()]
+        return value
+
+    @field_validator("REPORT_TIMEZONE")
+    @classmethod
+    def _valid_report_timezone(cls, value: str) -> str:
+        """Fail at startup, not on the first report request.
+
+        PostgreSQL accepts an invalid zone in a parameter and raises at query
+        time; the settings object is the only place where the mistake is still
+        cheap to see.
+        """
+        try:
+            ZoneInfo(value)
+        except (ZoneInfoNotFoundError, ValueError) as error:
+            raise ValueError(
+                f"REPORT_TIMEZONE is not a valid IANA zone: {value}"
+            ) from error
         return value
 
     @model_validator(mode="after")
