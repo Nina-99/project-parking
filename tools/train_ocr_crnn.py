@@ -384,7 +384,10 @@ def decode_ctc(logits: torch.Tensor, apply_heuristics: bool = True) -> list[str]
 
 
 def evaluate(
-    model: ResNetCRNN, dataloader: DataLoader, device: torch.device
+    model: ResNetCRNN,
+    dataloader: DataLoader,
+    device: torch.device,
+    dump_path: Path | None = None,
 ) -> tuple[OcrScores, OcrScores]:
     model.eval()
     pairs_raw: list[tuple[str, str]] = []
@@ -400,6 +403,28 @@ def evaluate(
 
             pairs_raw.extend(list(zip(labels, preds_raw)))
             pairs_heuristic.extend(list(zip(labels, preds_heuristic)))
+
+    if dump_path is not None:
+        # The plate text doubles as the cluster id: repeated crops of one plate
+        # share it, so bootstrap_ci.py can resample plates instead of crops.
+        dump_path.parent.mkdir(parents=True, exist_ok=True)
+        with dump_path.open("w", encoding="utf-8") as fh:
+            for index, ((truth, pred), (_, pred_heur)) in enumerate(
+                zip(pairs_raw, pairs_heuristic, strict=True)
+            ):
+                fh.write(
+                    json.dumps(
+                        {
+                            "stem": f"{truth or 'blank'}#{index:04d}",
+                            "plate": truth,
+                            "truth": truth,
+                            "pred": pred,
+                            "pred_heuristic": pred_heur,
+                        }
+                    )
+                    + "\n"
+                )
+        print(f"[ocr-eval] wrote {len(pairs_raw)} predictions to {dump_path}")
 
     return score_pairs(pairs_raw), score_pairs(pairs_heuristic)
 
@@ -586,6 +611,21 @@ def build_parser() -> argparse.ArgumentParser:
         help="Autocast precision for the backbone. CTC is always fp32.",
     )
     parser.add_argument("--save-dir", type=Path, default=Path("/tmp/opencode/ocr_checkpoints"))
+    parser.add_argument(
+        "--dump-test-predictions",
+        type=Path,
+        help="Write per-item test predictions as JSONL (truth, pred, plate). Feed the "
+             "file to bootstrap_ci.py items --task text --cluster-col plate to get an "
+             "interval that resamples plates instead of crops.",
+    )
+    parser.add_argument(
+        "--eval-only",
+        action="store_true",
+        help="Skip training: load --checkpoint (or the stage-2 checkpoint in --save-dir) "
+             "and report the test metrics. Combine with --dump-test-predictions to "
+             "export predictions from an existing model.",
+    )
+    parser.add_argument("--checkpoint", type=Path, help="Weights for --eval-only.")
     return parser
 
 
@@ -777,6 +817,13 @@ def main(argv: list[str] | None = None) -> None:
         f"[ocr-train] Stems -> synth: {len(train_synth_stems)}, real_train: {len(train_real_stems)}, real_test: {len(test_stems)}"
     )
 
+    if args.eval_only and not test_stems:
+        raise SystemExit(
+            f"[ocr-eval] there is nothing to evaluate: {ablation_dir / 'test.txt'} "
+            "does not exist or is empty. Point --dataset at the root that contains "
+            "'ablation/test.txt' and 'plates/images'."
+        )
+
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     pin_memory = device.type == "cuda"
     if device.type == "cuda":
@@ -806,6 +853,28 @@ def main(argv: list[str] | None = None) -> None:
         pin_memory=pin_memory,
         worker_init_fn=seed_worker,
     )
+
+    if args.eval_only:
+        checkpoint = args.checkpoint
+        if checkpoint is None:
+            for candidate in (checkpoint_best, checkpoint_final):
+                if candidate.exists():
+                    checkpoint = candidate
+                    break
+        if checkpoint is None or not checkpoint.exists():
+            raise SystemExit(
+                "[ocr-eval] no checkpoint to evaluate; pass --checkpoint or train first"
+            )
+        model.load_state_dict(torch.load(checkpoint, map_location=device))
+        raw, heur = evaluate(model, test_loader, device, dump_path=args.dump_test_predictions)
+        print(
+            f"[ocr-eval] {checkpoint}\n"
+            f"[ocr-eval] Raw  Acc: {raw.char_accuracy * 100:.1f}% "
+            f"(EM:{raw.exact_match * 100:.1f}%)  n={raw.n}\n"
+            f"[ocr-eval] Heur Acc: {heur.char_accuracy * 100:.1f}% "
+            f"(EM:{heur.exact_match * 100:.1f}%)"
+        )
+        return
 
     stage1_ran = False
     # Stage 2 replays synth batches even when stage 1 is skipped, so seed the
@@ -1030,7 +1099,9 @@ def main(argv: list[str] | None = None) -> None:
                 f"(EM {best_em * 100:.1f}%), {checkpoint_best}"
             )
 
-        final_raw, final_heur = evaluate(model, test_loader, device)
+        final_raw, final_heur = evaluate(
+            model, test_loader, device, dump_path=args.dump_test_predictions
+        )
         metrics_file = args.save_dir / "final_metrics.json"
         metrics_file.write_text(
             json.dumps(

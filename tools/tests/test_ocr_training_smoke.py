@@ -64,12 +64,28 @@ def test_stage1_runs_and_saves(tmp_path: Path) -> None:
 @pytest.mark.skipif(not Path("yolo26s.pt").exists(), reason="run from software/")
 def test_stage2_runs_and_writes_metrics(tmp_path: Path) -> None:
     root = _plate_dataset(tmp_path / "ds")
+    dump = root / "test_predictions.jsonl"
 
-    out = _run(root, "stage2_real", ["--epochs-real", "1"])
+    out = _run(root, "stage2_real", ["--epochs-real", "1",
+                                     "--dump-test-predictions", str(dump)])
 
     assert (out / "crnn_stage2_real.pt").exists()
     metrics = json.loads((out / "final_metrics.json").read_text(encoding="utf-8"))
     assert "raw" in metrics or "exact_match" in json.dumps(metrics)
+
+    # The dump is what bootstrap_ci.py consumes; without the cluster key the
+    # interval would resample crops instead of plates.
+    rows = [json.loads(line) for line in dump.read_text(encoding="utf-8").splitlines()]
+    assert rows
+    assert {"stem", "plate", "truth", "pred"} <= rows[0].keys()
+    assert all(row["plate"] == row["truth"] for row in rows)
+
+    # Re-evaluating an existing checkpoint must not require retraining.
+    eval_dump = root / "eval_predictions.jsonl"
+    main(["--dataset", str(root), "--stage", "stage2_real", "--eval-only",
+          "--save-dir", str(out), "--dump-test-predictions", str(eval_dump)])
+    assert eval_dump.exists()
+    assert len(eval_dump.read_text(encoding="utf-8").splitlines()) == len(rows)
 
 
 def test_a_fixed_schedule_keeps_the_learning_rate() -> None:

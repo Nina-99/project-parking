@@ -111,6 +111,10 @@ def build_parser() -> argparse.ArgumentParser:
                              "metrics are also broken down by vehicle type.")
     parser.add_argument("--min-test-support", type=int, default=MIN_TEST_SUPPORT,
                         help="Classes with fewer samples are shown but not reported.")
+    parser.add_argument("--dump-predictions", type=Path,
+                        help="Write per-item predictions as JSONL (stem, path, truth, "
+                             "pred). Feed the file to bootstrap_ci.py items to get an "
+                             "interval that resamples plates or sessions instead of crops.")
     return parser
 
 
@@ -144,6 +148,16 @@ def main(argv: list[str] | None = None) -> None:
     matrix = confusion(y_true, y_pred, len(classes))
     summary = summarise(matrix, classes, args.min_test_support)
     print_summary(summary, classes)
+    if args.dump_predictions:
+        with args.dump_predictions.open("w", encoding="utf-8") as fh:
+            for (path, _), truth, pred in zip(ds.items, y_true, y_pred, strict=True):
+                fh.write(json.dumps({
+                    "stem": path.stem,
+                    "path": str(path),
+                    "truth": classes[truth],
+                    "pred": classes[pred],
+                }) + "\n")
+        print(f"[eval] wrote {len(y_true)} predictions to {args.dump_predictions}")
     if args.types:
         _print_by_type(args.types, ds, y_true, y_pred, classes)
 
