@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-FileCopyrightText: 2026 Nina Marco <marconina999@gmail.com>
 # SPDX-License-Identifier: LicenseRef-Proprietary
 
 """The ports the application needs, and nothing else.
@@ -42,6 +42,45 @@ class VehicleStore(Protocol):
         image_path: str | None,
     ) -> str: ...
 
+    def correct_plate(self, vehicle_id: str, plate: str) -> str | None:
+        """Replace the plate with a human-verified one.
+
+        Returns the value it replaced, so the audit row can keep both sides.
+        The stored confidence becomes 1.0: from here on the plate is not an OCR
+        guess but a fact someone confirmed. A later exit must be able to match it.
+        """
+        ...
+
+    def plate_for(self, vehicle_id: str) -> str | None:
+        """The plate currently stored, or ``VehicleNotFoundError``."""
+        ...
+
+
+class AuthorizationStore(Protocol):
+    def is_authorized(self, plate: str | None) -> bool | None:
+        """Whether the plate is in the active whitelist.
+
+        ``None`` when there is no plate to check: "unknown" and "not authorized"
+        are different answers and the operator needs both.
+        """
+        ...
+
+
+class ValidationStore(Protocol):
+    def add(
+        self,
+        *,
+        vehicle_id: str,
+        session_id: str | None,
+        decision: str,
+        original_plate: str | None,
+        corrected_plate: str | None,
+        operator: str,
+        notes: str | None,
+        at: datetime,
+    ) -> None: ...
+
+
 
 class SessionStore(Protocol):
     def open(self, vehicle_id: str, gate: str, at: datetime) -> str: ...
@@ -70,6 +109,7 @@ class DetectionStore(Protocol):
         self,
         *,
         session_id: str | None,
+        vehicle_id: str | None,
         camera_id: str,
         observed_at: datetime,
         detection_confidence: float,
@@ -92,5 +132,7 @@ class UnitOfWork(Protocol):
     vehicles: VehicleStore
     sessions: SessionStore
     detections: DetectionStore
+    validations: ValidationStore
+    authorizations: AuthorizationStore
 
     def commit(self) -> None: ...

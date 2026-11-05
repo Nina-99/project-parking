@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-FileCopyrightText: 2026 Nina Marco <marconina999@gmail.com>
 # SPDX-License-Identifier: LicenseRef-Proprietary
 
 """One row per vehicle seen at a gate."""
@@ -9,7 +9,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 
 from sqlalchemy import DateTime, Float, String, Text, func
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from backend.app.core.database import Base
@@ -28,6 +28,10 @@ class Vehicle(Base):
         String(20), nullable=True, index=True,
     )
     license_plate_confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
+
+    # Per-character confidence and runners-up, as produced by the OCR. Null for
+    # readers that do not expose it (Paddle) and for plates entered by hand.
+    plate_characters: Mapped[list[dict] | None] = mapped_column(JSONB, nullable=True)
 
     vehicle_type: Mapped[str | None] = mapped_column(
         String(50), nullable=True,

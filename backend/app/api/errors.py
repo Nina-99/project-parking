@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-FileCopyrightText: 2026 Nina Marco <marconina999@gmail.com>
 # SPDX-License-Identifier: LicenseRef-Proprietary
 
 """Translate domain failures into HTTP once.
@@ -13,6 +13,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
 from backend.domain.errors import (
+    InvalidValidationDecisionError,
     SessionNotActiveError,
     SessionNotFoundError,
     VehicleNotFoundError,
@@ -31,3 +32,7 @@ def install_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(VehicleNotFoundError)
     async def _vehicle_not_found(_request: Request, _error: Exception) -> JSONResponse:
         return JSONResponse({"detail": "vehicle not found"}, status_code=404)
+
+    @app.exception_handler(InvalidValidationDecisionError)
+    async def _invalid_decision(_request: Request, error: Exception) -> JSONResponse:
+        return JSONResponse({"detail": str(error)}, status_code=422)

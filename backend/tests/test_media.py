@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-FileCopyrightText: 2026 Nina Marco <marconina999@gmail.com>
 # SPDX-License-Identifier: LicenseRef-Proprietary
 
 """Crops are served by id, and only from inside the image root.
@@ -99,6 +99,36 @@ def test_a_vehicle_without_a_crop_is_404(tmp_path: Path, monkeypatch) -> None:
     async def scenario() -> None:
         async with _client(_vehicle(None)) as client:
             response = await client.get(f"/api/v1/vehicles/{uuid.uuid4()}/image")
+
+            assert response.status_code == 404
+
+    asyncio.run(scenario())
+
+
+def test_an_event_clip_is_served(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setattr(settings, "ENTRY_IMAGE_DIR", str(tmp_path))
+    vehicle_id = uuid.uuid4()
+    clip = tmp_path / "clips" / f"{vehicle_id}.webm"
+    clip.parent.mkdir(parents=True)
+    clip.write_bytes(b"webm-bytes")
+
+    async def scenario() -> None:
+        async with _client(None) as client:
+            response = await client.get(f"/api/v1/vehicles/{vehicle_id}/clip")
+
+            assert response.status_code == 200
+            assert response.content == b"webm-bytes"
+            assert response.headers["content-type"].startswith("video/webm")
+
+    asyncio.run(scenario())
+
+
+def test_a_missing_clip_is_404(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setattr(settings, "ENTRY_IMAGE_DIR", str(tmp_path))
+
+    async def scenario() -> None:
+        async with _client(None) as client:
+            response = await client.get(f"/api/v1/vehicles/{uuid.uuid4()}/clip")
 
             assert response.status_code == 404
 

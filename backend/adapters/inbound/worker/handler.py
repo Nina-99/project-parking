@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-FileCopyrightText: 2026 Nina Marco <marconina999@gmail.com>
 # SPDX-License-Identifier: LicenseRef-Proprietary
 
 """One frame in, confirmed gate events out.
@@ -35,6 +35,11 @@ def handle_frame(
     backlog in the queue must not move a vehicle to a later hour.
     """
     observed_at = as_utc(captured_at) if captured_at is not None else dependencies.clock.now()
+
+    # Buffer before inference: the clip of a crossing has to include the seconds
+    # that led to it, and those frames were seen by earlier tasks.
+    if dependencies.clips is not None:
+        dependencies.clips.feed(camera_id, frame, observed_at)
 
     started = time.perf_counter()
     detections = dependencies.analyzer.process(frame)
@@ -79,6 +84,8 @@ def handle_frame(
                 latency_ms=latency_ms,
             )
         outcomes.append(asdict(outcome))
+        if dependencies.clips is not None:
+            dependencies.clips.start(camera_id, outcome.vehicle_id, event.observed_at)
 
     return {
         "camera_id": camera_id,

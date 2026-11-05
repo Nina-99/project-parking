@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina Marco <marconina999@gmail.com>
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Both OCR adapters behind one port, and the rules they share."""
 from __future__ import annotations
 
@@ -13,6 +16,7 @@ from backend.adapters.outbound.ml.plate_crnn import (
     NUM_CLASSES,
     CrnnPlateReader,
     decode,
+    decode_detailed,
     post_process_bolivian_plate,
     preprocess,
 )
@@ -75,6 +79,42 @@ def test_ctc_decode_collapses_repeats_and_blanks() -> None:
     assert confidence > 0.99
 
 
+def test_detailed_decode_keeps_the_runners_up_for_each_character() -> None:
+    logits = torch.full((5, 1, NUM_CLASSES), -10.0)
+    letter_a = ALPHABET.index("A") + 1
+    letter_b = ALPHABET.index("B") + 1
+    digit_eight = ALPHABET.index("8") + 1
+    logits[0, 0, letter_a] = 6.0
+    logits[0, 0, digit_eight] = 2.0
+    logits[1, 0, BLANK_IDX] = 10.0
+    logits[2, 0, letter_b] = 6.0
+    logits[3, 0, BLANK_IDX] = 10.0
+    logits[4, 0, BLANK_IDX] = 10.0
+
+    text, confidence, characters = decode_detailed(logits, top_k=3)
+
+    assert text == "AB"
+    assert len(characters) == 2
+    assert characters[0].char == "A"
+    assert characters[0].confidence > 0.9
+    alternatives = dict(characters[0].alternatives)
+    assert alternatives["8"] > 0.0, "the second choice must survive the decode"
+    assert characters[1].char == "B"
+    assert characters[1].alternatives == (), "a confident char has no rivals in top-1"
+
+
+def test_detailed_decode_with_top_one_has_no_alternatives() -> None:
+    logits = torch.full((3, 1, NUM_CLASSES), -10.0)
+    logits[0, 0, ALPHABET.index("A") + 1] = 10.0
+    logits[1, 0, BLANK_IDX] = 10.0
+    logits[2, 0, BLANK_IDX] = 10.0
+
+    text, _confidence, characters = decode_detailed(logits, top_k=1)
+
+    assert text == "A"
+    assert characters[0].alternatives == ()
+
+
 def test_the_bolivian_heuristic_fixes_a_digit_letter_confusion() -> None:
     assert post_process_bolivian_plate("I23ABC") == "123ABC"
     assert post_process_bolivian_plate("123ABC") == "123ABC"
@@ -89,3 +129,22 @@ def test_the_thesis_checkpoint_loads_into_the_adapter() -> None:
     result = reader.read(np.zeros((120, 120, 3), dtype=np.uint8))
 
     assert result is None or result.confidence >= reader.min_confidence
+
+
+DETECTOR = Path(settings.PLATE_DETECTOR_PATH) if settings.PLATE_DETECTOR_PATH else None
+
+
+def test_the_crnn_reader_is_built_with_a_locator() -> None:
+    """Without a locator the CRNN is handed a vehicle crop and reads nothing.
+
+    This asserts the wiring, not the weights: the worker sends vehicle crops, so
+    a reader with ``locator=None`` is a silently broken deployment.
+    """
+    if DETECTOR is None or not DETECTOR.exists():
+        pytest.skip("plate detector not available")
+
+    from backend.adapters.outbound.ml.plate_reader import build_plate_reader
+
+    reader = build_plate_reader()
+    assert reader is not None
+    assert reader.locator is not None

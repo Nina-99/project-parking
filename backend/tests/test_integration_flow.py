@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-FileCopyrightText: 2026 Nina Marco <marconina999@gmail.com>
 # SPDX-License-Identifier: LicenseRef-Proprietary
 
 """The full cycle against a real PostgreSQL, with the real migrations.
@@ -172,7 +172,11 @@ def test_purge_removes_old_telemetry_and_crops(db, tmp_path, monkeypatch) -> Non
 
     result = purge_old_data(retention_days=1)
 
-    assert result == {"deleted_events": 1, "deleted_crops": 1}
+    assert result == {
+        "deleted_events": 1,
+        "deleted_crops": 1,
+        "deleted_clips": 0,
+    }
     assert not crop.exists()
     with db() as session:
         assert session.scalar(select(func.count(DetectionEvent.id))) == 0

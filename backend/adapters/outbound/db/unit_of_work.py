@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-FileCopyrightText: 2026 Nina Marco <marconina999@gmail.com>
 # SPDX-License-Identifier: LicenseRef-Proprietary
 
 """One transaction per use case.
@@ -15,11 +15,19 @@ from types import TracebackType
 from sqlalchemy.orm import Session
 
 from backend.adapters.outbound.db.repositories import (
+    SqlAlchemyAuthorizationStore,
     SqlAlchemyDetectionStore,
     SqlAlchemySessionStore,
+    SqlAlchemyValidationStore,
     SqlAlchemyVehicleStore,
 )
-from backend.domain.ports import DetectionStore, SessionStore, VehicleStore
+from backend.domain.ports import (
+    AuthorizationStore,
+    DetectionStore,
+    SessionStore,
+    ValidationStore,
+    VehicleStore,
+)
 
 
 class SqlAlchemyUnitOfWork:
@@ -34,6 +42,10 @@ class SqlAlchemyUnitOfWork:
         self.vehicles: VehicleStore = SqlAlchemyVehicleStore(self._session)
         self.sessions: SessionStore = SqlAlchemySessionStore(self._session)
         self.detections: DetectionStore = SqlAlchemyDetectionStore(self._session)
+        self.validations: ValidationStore = SqlAlchemyValidationStore(self._session)
+        self.authorizations: AuthorizationStore = SqlAlchemyAuthorizationStore(
+            self._session
+        )
         return self
 
     def commit(self) -> None:

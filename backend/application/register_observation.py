@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-FileCopyrightText: 2026 Nina Marco <marconina999@gmail.com>
 # SPDX-License-Identifier: LicenseRef-Proprietary
 
 """The single write path: one confirmed gate event becomes one vehicle.
@@ -87,6 +87,7 @@ def register_observation(
 
     uow.detections.record(
         session_id=session_id or matched_session_id,
+        vehicle_id=vehicle_id,
         camera_id=event.camera_id,
         observed_at=event.observed_at,
         detection_confidence=event.detection_confidence,
@@ -96,6 +97,13 @@ def register_observation(
         inference_latency_ms=latency_ms,
         track_id=event.track_id,
         direction=direction,
+    )
+
+    # RF-10: the operator has to know, on the event itself, whether the plate is
+    # in the registry. Checking it here and not in the browser keeps the rule in
+    # one place and gives the socket payload its operational meaning.
+    authorized = uow.authorizations.is_authorized(
+        plate.text if plate is not None else None
     )
     uow.commit()
 
@@ -113,6 +121,9 @@ def register_observation(
         "session_id": session_id or matched_session_id,
         "vehicle_type": event.attributes.vehicle_type,
         "color": event.attributes.color,
+        "license_plate": plate.text if plate is not None else None,
+        "plate_confidence": plate.confidence if plate is not None else None,
+        "authorized": authorized,
         "timestamp": clock.now().isoformat(),
     })
 

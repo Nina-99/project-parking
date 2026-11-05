@@ -6,6 +6,7 @@ from backend.app.models.camera import Camera
 from backend.app.models.detection_event import DetectionEvent
 from backend.app.models.parking_session import ParkingSession
 from backend.app.models.user import User
+from backend.app.models.validation_decision import ValidationDecision
 from backend.app.models.vehicle import Vehicle
 
 __all__ = [
@@ -14,5 +15,6 @@ __all__ = [
     "DetectionEvent",
     "ParkingSession",
     "User",
+    "ValidationDecision",
     "Vehicle",
 ]

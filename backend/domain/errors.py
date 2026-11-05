@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-FileCopyrightText: 2026 Nina Marco <marconina999@gmail.com>
 # SPDX-License-Identifier: LicenseRef-Proprietary
 
 """Domain failures the API has to translate into HTTP.
@@ -19,3 +19,11 @@ class SessionNotActiveError(Exception):
 
 class VehicleNotFoundError(Exception):
     """No vehicle with that id exists."""
+
+
+class InvalidValidationDecisionError(Exception):
+    """The operator's decision is not one the domain accepts.
+
+    A corrected plate that is not a plate belongs here too: accepting it would
+    store an identifier the matching policy can never use.
+    """

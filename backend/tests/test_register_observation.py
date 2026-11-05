@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-FileCopyrightText: 2026 Nina Marco <marconina999@gmail.com>
 # SPDX-License-Identifier: LicenseRef-Proprietary
 
 """The write use case: what a confirmed gate event does to the database.
@@ -146,3 +146,34 @@ def test_the_event_keeps_its_inference_metadata() -> None:
     assert record["inference_latency_ms"] == 42.5
     assert record["track_id"] == 7
     assert record["crop_image_path"] == "/tmp/crop.jpg"
+    assert record["vehicle_id"] == "vehicle-1", (
+        "an unmatched exit has no session, so the vehicle is the only link"
+    )
+
+
+def test_the_event_publishes_the_plate_and_the_whitelist_verdict() -> None:
+    publisher = FakePublisher()
+    uow = FakeUnitOfWork(authorized={"ABC123"})
+
+    register_observation(
+        event=event(), gate="entry", image_path=None,
+        plate=Plate(text="abc-123", confidence=0.94),
+        uow=uow, publisher=publisher, clock=FixedClock(),
+    )
+
+    payload = publisher.payloads[0]
+    assert payload["license_plate"] == "abc-123"
+    assert payload["plate_confidence"] == 0.94
+    assert payload["authorized"] is True
+
+
+def test_without_a_plate_the_verdict_is_unknown_not_denied() -> None:
+    publisher = FakePublisher()
+
+    register_observation(
+        event=event(), gate="entry", image_path=None,
+        uow=FakeUnitOfWork(), publisher=publisher, clock=FixedClock(),
+    )
+
+    assert publisher.payloads[0]["authorized"] is None
+    assert publisher.payloads[0]["license_plate"] is None

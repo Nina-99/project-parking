@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-FileCopyrightText: 2026 Nina Marco <marconina999@gmail.com>
 # SPDX-License-Identifier: LicenseRef-Proprietary
 
 """Vehicle lookup for incident investigation.
@@ -27,6 +27,7 @@ from fastapi.responses import FileResponse
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.adapters.outbound.storage.clips import resolve_clip_path
 from backend.app.core.config import settings
 from backend.app.core.database import get_session
 from backend.app.models.parking_session import ParkingSession
@@ -143,6 +144,31 @@ async def vehicle_image(
     )
 
 
+def clip_url_for(vehicle_id: uuid.UUID) -> str | None:
+    """The URL of the event clip when one was written, None otherwise."""
+    path = resolve_clip_path(
+        str(vehicle_id), media_root=Path(settings.ENTRY_IMAGE_DIR),
+    )
+    if path is None:
+        return None
+    return f"/api/v1/vehicles/{vehicle_id}/clip"
+
+
+@router.get("/{vehicle_id}/clip", response_class=FileResponse)
+async def vehicle_clip(vehicle_id: uuid.UUID) -> FileResponse:
+    """The few seconds around the crossing, as an evidence clip."""
+    path = resolve_clip_path(
+        str(vehicle_id), media_root=Path(settings.ENTRY_IMAGE_DIR),
+    )
+    if path is None:
+        raise HTTPException(status_code=404, detail="clip not found")
+    return FileResponse(
+        path,
+        media_type="video/webm",
+        headers={"Cache-Control": "private, max-age=86400"},
+    )
+
+
 @router.get("/{vehicle_id}", response_model=VehicleDetail)
 async def get_vehicle(
     vehicle_id: uuid.UUID,
@@ -171,6 +197,8 @@ async def get_vehicle(
             f"/api/v1/vehicles/{vehicle.id}/image"
             if vehicle.entry_image_path else None
         ),
+        clip_url=clip_url_for(vehicle.id),
+        plate_characters=vehicle.plate_characters,
         created_at=vehicle.created_at,
         sessions=[
             VehicleSession(

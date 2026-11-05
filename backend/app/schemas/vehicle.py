@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-FileCopyrightText: 2026 Nina Marco <marconina999@gmail.com>
 # SPDX-License-Identifier: LicenseRef-Proprietary
 
 """Schemas for a vehicle and a search hit."""
@@ -47,6 +47,19 @@ class VehicleSearchHit(BaseModel):
     match: Literal["exact", "neighbour"]
 
 
+class PlateAlternative(BaseModel):
+    char: str
+    confidence: float
+
+
+class PlateCharacter(BaseModel):
+    """One character of the read, with the model's runners-up for that position."""
+
+    char: str
+    confidence: float
+    alternatives: list[PlateAlternative] = []
+
+
 class VehicleSession(BaseModel):
     id: uuid.UUID
     entry_gate: str | None
@@ -67,5 +80,7 @@ class VehicleDetail(BaseModel):
     color: str | None
     color_confidence: float | None
     image_url: str | None
+    clip_url: str | None = None
+    plate_characters: list[PlateCharacter] | None = None
     created_at: datetime
     sessions: list[VehicleSession]

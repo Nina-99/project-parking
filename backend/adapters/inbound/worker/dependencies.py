@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-FileCopyrightText: 2026 Nina Marco <marconina999@gmail.com>
 # SPDX-License-Identifier: LicenseRef-Proprietary
 
 """What the Celery task is made of.
@@ -15,12 +15,14 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
 
+from backend.adapters.inbound.worker.clips import ClipRecorder
 from backend.adapters.inbound.worker.ports import CropStore, VehicleAnalyzer
 from backend.adapters.inbound.worker.tracking import aggregator_for
 from backend.adapters.outbound.bus.redis_publisher import RedisEventPublisher
 from backend.adapters.outbound.db.session import get_session_factory
 from backend.adapters.outbound.db.unit_of_work import SqlAlchemyUnitOfWork
 from backend.adapters.outbound.ml.plate_reader import build_plate_reader
+from backend.adapters.outbound.storage.clips import ClipStore
 from backend.adapters.outbound.storage.crops import CropFileStore
 from backend.adapters.outbound.time import SystemClock
 from backend.app.core.config import settings
@@ -38,6 +40,21 @@ class WorkerDependencies:
     aggregator_for: Callable[[str, int, int], TrackAggregator]
     plate_reader: PlateReader | None = None
     model_name: str = "unknown"
+    clips: ClipRecorder | None = None
+
+
+# One recorder for the process: a clip spans several tasks, so building a new
+# one per frame would lose the "before" buffer and leave every clip empty.
+_clip_recorder: ClipRecorder | None = None
+
+
+def clip_recorder() -> ClipRecorder:
+    global _clip_recorder
+    if _clip_recorder is None:
+        _clip_recorder = ClipRecorder(
+            ClipStore(Path(settings.ENTRY_IMAGE_DIR) / "clips")
+        )
+    return _clip_recorder
 
 
 def build_worker_dependencies() -> WorkerDependencies:
@@ -57,4 +74,5 @@ def build_worker_dependencies() -> WorkerDependencies:
         aggregator_for=aggregator_for,
         plate_reader=build_plate_reader(),
         model_name=Path(settings.YOLO_MODEL_PATH).stem,
+        clips=clip_recorder(),
     )

@@ -77,7 +77,7 @@ def db(postgres_test_url, monkeypatch):
     with engine.begin() as connection:
         connection.execute(text(
             "TRUNCATE detection_events, parking_sessions, vehicles, "
-            "authorized_vehicles "
+            "authorized_vehicles, validation_decisions "
             "RESTART IDENTITY CASCADE",
         ))
 

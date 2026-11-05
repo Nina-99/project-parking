@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-FileCopyrightText: 2026 Nina Marco <marconina999@gmail.com>
 # SPDX-License-Identifier: LicenseRef-Proprietary
 
 """Raw inference log: one row per YOLO detection."""
@@ -22,6 +22,11 @@ class DetectionEvent(Base):
     )
     session_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("parking_sessions.id"), nullable=True, index=True,
+    )
+    # The vehicle this observation produced. An unmatched exit has no session, so
+    # this is the only link between the event and the row the operator reviews.
+    vehicle_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("vehicles.id"), nullable=True, index=True,
     )
 
     camera_id: Mapped[str] = mapped_column(String(50), index=True)

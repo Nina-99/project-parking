@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-FileCopyrightText: 2026 Nina Marco <marconina999@gmail.com>
 # SPDX-License-Identifier: LicenseRef-Proprietary
 
 """One vehicle with its sessions, for the incident detail view."""
@@ -51,6 +51,7 @@ def _vehicle() -> SimpleNamespace:
         color="plata",
         color_confidence=0.8,
         entry_image_path="/tmp/crop.jpg",
+        plate_characters=None,
         created_at=NOW,
     )
 

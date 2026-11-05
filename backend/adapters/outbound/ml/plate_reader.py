@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Nina Marco <marconina999@gmail.com>
+# SPDX-License-Identifier: LicenseRef-Proprietary
+
 """Choose the plate reader from configuration.
 
 Off by default: until one reader is measured on the frozen test set, auto-close
@@ -18,11 +21,19 @@ def build_plate_reader() -> PlateReader | None:
 
     if settings.OCR_READER == "crnn":
         from backend.adapters.outbound.ml.plate_crnn import CrnnPlateReader
+        from backend.adapters.outbound.ml.plate_locator import build_locator
 
+        device = "cuda" if settings.OCR_USE_GPU else "cpu"
         return CrnnPlateReader(
             Path(settings.OCR_CRNN_CHECKPOINT),
-            device="cuda" if settings.OCR_USE_GPU else "cpu",
+            device=device,
             min_confidence=settings.OCR_MIN_CONFIDENCE,
+            # Without a locator the CRNN receives a vehicle crop and reads
+            # garbage: it was trained on tight plate crops.
+            locator=build_locator(
+                Path(settings.PLATE_DETECTOR_PATH) if settings.PLATE_DETECTOR_PATH else None,
+                device=device,
+            ),
         )
 
     from backend.adapters.outbound.ml.plate_paddle import PaddlePlateReader

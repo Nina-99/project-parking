@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2026 Nina
+# SPDX-FileCopyrightText: 2026 Nina Marco <marconina999@gmail.com>
 # SPDX-License-Identifier: LicenseRef-Proprietary
 
 """Shared test doubles for the application layer.
@@ -10,7 +10,8 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from backend.domain.matching import OpenSession
+from backend.domain.errors import VehicleNotFoundError
+from backend.domain.matching import OpenSession, normalize_plate
 from backend.domain.vehicle import Plate, VehicleAttributes
 
 NOW = datetime(2026, 5, 4, 10, 0, tzinfo=UTC)
@@ -19,6 +20,10 @@ NOW = datetime(2026, 5, 4, 10, 0, tzinfo=UTC)
 class FakeVehicles:
     def __init__(self) -> None:
         self.added: list[tuple[VehicleAttributes, Plate | None, str | None]] = []
+        self.plates: dict[str, str | None] = {}
+        self.corrected: list[tuple[str, str]] = []
+        self.missing: set[str] = set()
+        self._next = 0
 
     def add(
         self,
@@ -27,7 +32,41 @@ class FakeVehicles:
         image_path: str | None,
     ) -> str:
         self.added.append((attributes, plate, image_path))
-        return "vehicle-1"
+        self._next += 1
+        return f"vehicle-{self._next}"
+
+    def correct_plate(self, vehicle_id: str, plate: str) -> str | None:
+        if vehicle_id in self.missing:
+            raise VehicleNotFoundError(vehicle_id)
+        self.corrected.append((vehicle_id, plate))
+        previous = self.plates.get(vehicle_id)
+        self.plates[vehicle_id] = plate
+        return previous
+
+    def plate_for(self, vehicle_id: str) -> str | None:
+        if vehicle_id in self.missing:
+            raise VehicleNotFoundError(vehicle_id)
+        return self.plates.get(vehicle_id)
+
+
+class FakeAuthorizations:
+    def __init__(self, authorized: set[str] | None = None) -> None:
+        self.authorized = {normalize_plate(item) for item in (authorized or set())}
+        self.checks: list[str | None] = []
+
+    def is_authorized(self, plate: str | None) -> bool | None:
+        self.checks.append(plate)
+        if not plate:
+            return None
+        return normalize_plate(plate) in self.authorized
+
+
+class FakeValidations:
+    def __init__(self) -> None:
+        self.added: list[dict] = []
+
+    def add(self, **fields: object) -> None:
+        self.added.append(fields)
 
 
 class FakeSessions:
@@ -75,10 +114,16 @@ class FakeDetections:
 
 
 class FakeUnitOfWork:
-    def __init__(self, active: list[OpenSession] | None = None) -> None:
+    def __init__(
+        self,
+        active: list[OpenSession] | None = None,
+        authorized: set[str] | None = None,
+    ) -> None:
         self.vehicles = FakeVehicles()
         self.sessions = FakeSessions(active)
         self.detections = FakeDetections()
+        self.validations = FakeValidations()
+        self.authorizations = FakeAuthorizations(authorized)
         self.commits = 0
         self.log: list[str] = []
 
